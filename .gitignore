@@ -1,0 +1,21 @@
+node_modules/
+npm-debug.log*
+*.log
+
+# Local live/demo data
+cloud-state.json
+cloud-state.json.bak
+demo-state.json
+*.bak
+
+# Local build artifacts
+dist/
+build/
+out/
+*.exe
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

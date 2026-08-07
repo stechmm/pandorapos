@@ -1,0 +1,15 @@
+{
+  "name": "pandora-pos-online",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pandora POS online-ready web app and central sync API.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check app.js",
+    "smoke:links": "node tests/pos-links.smoke.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

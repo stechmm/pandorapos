@@ -1,0 +1,2062 @@
+﻿<!DOCTYPE html>
+<html lang="my" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pandora POS - Restaurant POS System</title>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@100..900&family=Outfit:wght@300;400;500;600;700;800&family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- 1. SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="brand-section" style="padding: 10px 5px 15px 5px; align-items: center;">
+        <img src="logo.png" alt="Pandora Logo" style="width: 42px; height: 42px; border-radius: 8px; object-fit: contain; border: 1.5px solid var(--accent-primary);">
+        <div class="brand-name" style="margin-left: 8px; line-height: 1.1;">
+          PANDORA<br><span style="font-size: 0.72rem; font-weight: 600; opacity: 0.8; color: var(--accent-primary); letter-spacing: 0.5px;">POS</span>
+        </div>
+      </div>
+      
+      <ul class="nav-list">
+        <li class="nav-item active" data-tab="dashboard-pane">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Dashboard</span>
+        </li>
+        <li class="nav-item" data-tab="sales-pane">
+          <i class="fa-solid fa-cash-register"></i>
+          <span>POS</span>
+        </li>
+        <li class="nav-item" data-tab="kitchen-pane">
+          <i class="fa-solid fa-kitchen-set"></i>
+          <span>Kitchen KDS</span>
+        </li>
+        <li class="nav-item" data-tab="market-pane">
+          <i class="fa-solid fa-basket-shopping"></i>
+          <span>Expenses</span>
+        </li>
+        <li class="nav-item" data-tab="inventory-pane">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>Inventory</span>
+        </li>
+        <li class="nav-item" data-tab="reports-pane">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+          <span>Reports</span>
+        </li>
+        <li class="nav-item" data-tab="admin-pane" id="navAdminTab">
+          <i class="fa-solid fa-user-shield"></i>
+          <span>Admin Panel</span>
+        </li>
+        <li class="nav-item" data-tab="settings-pane">
+          <i class="fa-solid fa-gears"></i>
+          <span>Settings</span>
+        </li>
+      </ul>
+      
+      <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 0.8rem; color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <div style="font-weight: bold;" id="currentLoggedInUserName">--</div>
+            <div style="font-size: 0.75rem; opacity: 0.7; text-transform: uppercase;" id="currentLoggedInUserRole">--</div>
+          </div>
+          <button class="theme-toggle" id="themeTogglerBtn" title="Theme ပြောင်းရန်" style="width: 32px; height: 32px;">
+            <i class="fa-solid fa-sun" id="themeTogglerIcon"></i>
+          </button>
+        </div>
+        <button class="submit-btn" id="logoutBtn" style="padding: 8px; font-size: 0.8rem; border-radius: var(--border-radius-sm); background: var(--accent-danger); box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <i class="fa-solid fa-right-from-bracket"></i> ထွက်မည် (Logout)
+        </button>
+      </div>
+    </aside>
+
+    <!-- 2. MAIN CONTENT AREA -->
+    <main class="main-content">
+      
+      <!-- Top header panel -->
+      <header class="top-header">
+        <div class="header-title-section">
+          <h1 id="pageTitleDisplay">Dashboard</h1>
+          <p id="restaurantNameDisplay">Pandora Food House</p>
+        </div>
+        <div class="header-actions">
+          <div style="display: flex; align-items: center; gap: 12px; position: relative;">
+            <!-- Manual Sync Button -->
+            <button type="button" id="manualSyncBtn" onclick="triggerManualSync()" style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); font-size: 0.85rem; padding: 0 14px; height: 38px; border-radius: var(--border-radius-md); cursor: pointer; color: var(--accent-success); display: flex; align-items: center; gap: 6px; font-weight: 700; transition: var(--transition-smooth); outline: none; user-select: none;" title="စင့်ခ်လုပ်ရန် / Sync Data">
+              <i class="fa-solid fa-arrows-rotate" id="manualSyncIcon"></i> <span>Sync</span>
+            </button>
+            
+            <div class="date-time-widget">
+              <i class="fa-regular fa-clock" style="color: var(--accent-primary);"></i>
+              <span id="currentTimeDisplay" style="margin-right: 2px;">--:--:-- PM</span>
+            </div>
+            
+            <!-- Register dropdown container -->
+            <div style="position: relative; display: inline-block;">
+              <button type="button" id="registerDropdownTrigger" onclick="toggleRegisterDropdown(event)" style="background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border); font-size: 1rem; width: 38px; height: 38px; border-radius: var(--border-radius-md); cursor: pointer; color: var(--text-primary); display: flex; align-items: center; justify-content: center; transition: var(--transition-smooth);" title="Register Menu">
+                <i class="fa-solid fa-bars"></i>
+              </button>
+              
+              <div id="registerDropdownContent" class="register-dropdown-content" style="display: none; position: absolute; right: 0; top: 46px; background: var(--panel-bg); backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); min-width: 170px; box-shadow: var(--shadow-lg); z-index: 1000; overflow: hidden;">
+                <a href="#" onclick="openRegisterCashInOutModal(event)" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--text-primary); font-size: 0.88rem; text-decoration: none; border-bottom: 1px solid var(--panel-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+                  <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-primary); width: 16px;"></i> Cash In / Out
+                </a>
+                <a href="#" id="registerCloseOpenLink" onclick="triggerRegisterCloseOpen(event)" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--text-primary); font-size: 0.88rem; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+                  <i class="fa-solid fa-door-closed" style="color: var(--accent-danger); width: 16px;"></i> Close Register
+                </a>
+                <div style="padding: 10px 16px; border-top: 1px solid var(--panel-border); background: rgba(255,255,255,0.02);">
+                  <div style="font-size: 0.72rem; font-weight: bold; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Floor BG Style</div>
+                  <select id="floorBgSelector" onchange="changeFloorBackground(this.value)" style="width: 100%; padding: 5px 8px; font-size: 0.78rem; border-radius: var(--border-radius-sm); background: var(--input-bg); border: 1px solid var(--panel-border); color: var(--text-primary); cursor: pointer; outline: none;">
+                    <option value="default">Default BG</option>
+                    <option value="decor">Restaurant Decor</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- PANES/TABS SECTION -->
+
+      <!-- A. DASHBOARD PANE -->
+      <section class="content-pane active" id="dashboard-pane">
+        <!-- Dashboard Header with Date Filter -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+          <h2 style="font-weight: 800; font-size: 1.5rem; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-chart-line" style="color: var(--accent-primary);"></i> Dashboard ဆိုင်အခြေအနေ
+          </h2>
+          <div style="display: flex; align-items: center; gap: 8px; background: var(--panel-bg); border: 1px solid var(--panel-border); padding: 4px 8px; border-radius: var(--border-radius-md); box-shadow: var(--shadow-sm);">
+            <i class="fa-solid fa-calendar-days" style="color: var(--text-secondary); font-size: 0.9rem;"></i>
+            <select id="dashboardDateFilter" class="form-control" style="width: 150px; background: transparent; border: none; color: var(--text-primary); font-weight: 700; font-size: 0.85rem; cursor: pointer; padding: 4px; height: auto;" onchange="renderDashboard()">
+              <option value="today" style="background: var(--panel-bg); color: var(--text-primary);">ယနေ့ (Today)</option>
+              <option value="7days" style="background: var(--panel-bg); color: var(--text-primary);">၇ ရက် (7 Days)</option>
+              <option value="30days" style="background: var(--panel-bg); color: var(--text-primary);">၁ လ (30 Days)</option>
+              <option value="1year" style="background: var(--panel-bg); color: var(--text-primary);">၁ နှစ် (1 Year)</option>
+              <option value="all" style="background: var(--panel-bg); color: var(--text-primary);">အားလုံး (All Time)</option>
+            </select>
+          </div>
+        </div>
+        <!-- Stat Cards Row -->
+        <div class="dashboard-grid">
+          <div class="stat-card" onclick="showDashboardDetail('sales')" style="--card-color: var(--accent-primary); --card-glow: var(--accent-primary-glow); cursor: pointer;">
+            <div class="stat-info">
+              <h3>ယနေ့အရောင်း (Sales Today)</h3>
+              <div class="stat-value" id="statTodaySales">0 MMK</div>
+            </div>
+            <div class="stat-icon">
+              <i class="fa-solid fa-money-bill-wave"></i>
+            </div>
+          </div>
+          
+          <div class="stat-card" onclick="showDashboardDetail('orders')" style="--card-color: var(--accent-success); --card-glow: var(--accent-success-glow); cursor: pointer;">
+            <div class="stat-info">
+              <h3>နေ့စဉ် အော်ဒါ (Orders)</h3>
+              <div class="stat-value" id="statTodayOrders">0</div>
+            </div>
+            <div class="stat-icon">
+              <i class="fa-solid fa-receipt"></i>
+            </div>
+          </div>
+          
+          <div class="stat-card" onclick="showDashboardDetail('expenses')" style="--card-color: var(--accent-danger); --card-glow: var(--accent-danger-glow); cursor: pointer;">
+            <div class="stat-info">
+              <h3>ယနေ့ကုန်ကျစရိတ် (Expenses)</h3>
+              <div class="stat-value" id="statTodayExpenses">0 MMK</div>
+            </div>
+            <div class="stat-icon">
+              <i class="fa-solid fa-cart-shopping"></i>
+            </div>
+          </div>
+          
+          <div class="stat-card" onclick="showDashboardDetail('low_stock')" style="--card-color: var(--accent-warning); --card-glow: var(--accent-warning-glow); cursor: pointer;">
+            <div class="stat-info">
+              <h3>စတော့နည်းသောပစ္စည်း (Low Stock)</h3>
+              <div class="stat-value" id="statLowStockCount">0</div>
+            </div>
+            <div class="stat-icon">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph & Popular Items -->
+        <div class="analytics-section">
+          <!-- Today's Sold Items List -->
+          <div class="chart-card">
+            <div class="card-header">
+              <h2>ယနေ့ ရောင်းရသော ဟင်းပွဲများ (Items Sold Today)</h2>
+              <span style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-solid fa-pizza-slice"></i> အရေအတွက်စာရင်း</span>
+            </div>
+            <div class="report-table-wrapper" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+              <table class="sales-report-table">
+                <thead>
+                  <tr>
+                    <th>ဟင်းပွဲအမည်</th>
+                    <th>အမျိုးအစား</th>
+                    <th>ရောင်းရသည့် အရေအတွက်</th>
+                    <th>စုစုပေါင်းရောင်းရငွေ</th>
+                  </tr>
+                </thead>
+                <tbody id="todaySoldItemsTableBody">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Popular Menu list -->
+          <div class="table-card">
+            <div class="card-header">
+              <h2>လူကြိုက်အများဆုံး စားစရာများ</h2>
+              <i class="fa-solid fa-fire" style="color: var(--accent-primary);"></i>
+            </div>
+            <div class="popular-list" id="popularItemsList">
+              <!-- Rendered in app.js -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- B. SALES PANE (ORDERING COUNTER) -->
+      <section class="content-pane" id="sales-pane">
+        <div class="sales-layout cart-hidden" id="salesLayout">
+          
+          <!-- Product list side -->
+          <div class="products-column">
+            <!-- Mode buttons at the very top -->
+            <div class="pos-mode-buttons" style="display: flex; gap: 8px; margin-bottom: 12px; width: 100%;">
+              <button type="button" class="pos-mode-btn active" id="posModeTablesBtn" onclick="setPosMode('tables')" style="flex: 1; padding: 11px; font-weight: 700; border-radius: var(--border-radius-md); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; transition: var(--transition-smooth);">
+                <i class="fa-solid fa-table-cells-large"></i> Tables
+              </button>
+              <button type="button" class="pos-mode-btn" id="posModeTakeawayBtn" onclick="setPosMode('takeaway')" style="flex: 1; padding: 11px; font-weight: 700; border-radius: var(--border-radius-md); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; transition: var(--transition-smooth);">
+                <i class="fa-solid fa-basket-shopping"></i> Takeaway
+              </button>
+              <button type="button" class="pos-mode-btn" id="posModeOrdersBtn" onclick="openActiveOrdersModal()" style="flex: 1; padding: 11px; font-weight: 700; border-radius: var(--border-radius-md); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; transition: var(--transition-smooth);">
+                <i class="fa-solid fa-receipt"></i> Orders
+              </button>
+              <button type="button" class="pos-mode-btn" id="posModeQrBtn" onclick="window.location.hash='#menu'" style="flex: 1; padding: 11px; font-weight: 700; border-radius: var(--border-radius-md); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; transition: var(--transition-smooth);">
+                <i class="fa-solid fa-book-open"></i> Menu
+              </button>
+            </div>
+
+            <!-- Table Layout sub-pane (Dine-in Floor Map) inside POS -->
+            <div id="posTableLayoutSubpane" style="display: block; width: 100%;">
+              <div id="tableAdminActions" style="display: none; gap: 6px;"></div>
+              <!-- Floor Switcher & New Order row -->
+              <div style="display: flex; align-items: center; margin-bottom: 10px; margin-top: 5px;">
+                <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: var(--border-radius-md);">
+                  <button type="button" class="pos-mode-btn" id="floorNewOrderBtn" onclick="startNewOrderWithoutTable()" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth); background: var(--accent-danger) !important; color: #fff !important; border-color: var(--accent-danger) !important; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);">
+                    <i class="fa-solid fa-circle-plus"></i> New Order
+                  </button>
+                  <button type="button" class="pos-mode-btn active" id="floorMainBtn" onclick="switchFloor('main')" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth);">Main Floor</button>
+                  <button type="button" class="pos-mode-btn" id="floor2ndBtn" onclick="switchFloor('2nd')" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth);">2nd Floor</button>
+                </div>
+              </div>
+              
+              <div id="tablesFloorContainer" class="tables-floor-container" style="margin-top: 5px;">
+                <!-- Alignment guidelines -->
+                <div id="alignLineV" style="position: absolute; width: 0; border-left: 1.5px dashed var(--accent-brand-blue); top: 0; bottom: 0; display: none; pointer-events: none; z-index: 99;"></div>
+                <div id="alignLineH" style="position: absolute; height: 0; border-top: 1.5px dashed var(--accent-brand-blue); left: 0; right: 0; display: none; pointer-events: none; z-index: 99;"></div>
+                
+                <div class="table-grid" id="tablesGridContainer">
+                  <!-- Rendered in app.js -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Products Menu sub-pane inside POS -->
+            <div id="posProductsSubpane" style="display: none; width: 100%;">
+
+
+              <div class="search-filter-row" style="margin-bottom: 12px;">
+                <div class="search-wrapper">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" class="search-input" id="productSearchInput" placeholder="ဟင်းပွဲအမည်ဖြင့် ရှာဖွေပါ...">
+                </div>
+              </div>
+              
+              <!-- Category Tabs (မန်နူးအုပ်စုများ) -->
+              <div class="category-scroll" id="categoryScrollTabs" style="padding: 8px 4px; margin-bottom: 5px;">
+                <!-- Rendered in app.js -->
+              </div>
+              
+              <div class="products-grid" id="productsGridWrapper">
+                <!-- Rendered in app.js -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Active Cart Column -->
+          <div class="cart-column">
+
+            <!-- STEP 1: ORDER LIST -->
+            <div id="cartStep1Panel">
+              <div class="cart-header">
+                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                  <i class="fa-solid fa-receipt" style="color:var(--accent-primary); font-size:1rem;"></i>
+                  <h2 style="margin:0;">မှာယူမှုစာရင်း</h2>
+                  <span id="cartTableBadge" style="display:none; padding:2px 10px; border-radius:20px; font-size:0.72rem; font-weight:800; background:var(--accent-brand-blue); color:#fff; white-space:nowrap;"></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <button type="button" id="cartStep1TransferTableBtn" onclick="openTransferTableModal()" style="border:none; background:none; font-weight:bold; cursor:pointer; color:var(--text-secondary); display:none;" title="စားပွဲပြောင်းမည် (Table Transfer)">
+                    <i class="fa-solid fa-right-from-bracket" style="transform: rotate(180deg); font-size: 1.1rem;"></i>
+                  </button>
+                  <button class="btn-edit-action delete" id="clearCartBtn" style="border:none; background:none; font-weight:bold; cursor:pointer; margin:0;" title="ဖျက်မည်">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Compact Item List -->
+              <div class="cart-items-wrapper" id="cartItemsContainer">
+                <!-- Rendered in app.js -->
+              </div>
+
+              <!-- Step 1 Footer: subtotal preview + Confirm -->
+              <div class="cart-step1-footer" id="cartStep1Footer" style="display:none;">
+                
+                <!-- Detailed Bill Summary inside Step 1 (shown when table is occupied) -->
+                <div id="cartStep1BillSummary" style="display:none; flex-direction:column; gap:4px; border-bottom:1px dashed var(--panel-border); padding-bottom:8px; margin-bottom:8px; font-size:0.82rem; color:var(--text-secondary);">
+                  <div style="display:flex; justify-content:space-between;">
+                    <span>သင့်ငွေ (Subtotal)</span>
+                    <span id="step1BillSubtotal">0 MMK</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; display:none; color:var(--accent-danger);" id="step1BillDiscountLine">
+                    <span>လျှော့စျေး</span>
+                    <span id="step1BillDiscount">-0 MMK</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between;">
+                    <span>အခွန် (<span id="step1BillTaxRate">0</span>%)</span>
+                    <span id="step1BillTax">0 MMK</span>
+                  </div>
+                </div>
+
+                <div class="step1-subtotal-row" id="cartStep1SubtotalPreviewRow">
+                  <span>စုစုပေါင်း</span>
+                  <span id="step1SubtotalPreview" style="font-weight:800; color:var(--text-primary);">0 MMK</span>
+                </div>
+                <div style="display:flex; gap:8px; width:100%;">
+                  <button class="cart-confirm-btn" id="cartConfirmBtn" onclick="confirmCartStep()" style="flex:1.2; margin:0;">
+                    <i class="fa-solid fa-circle-check"></i> Confirm Order
+                  </button>
+                  <button type="button" class="cart-action-btn payment" id="cartStep1PaymentBtn" onclick="processPaymentAction()" style="flex:1; display:none; align-items:center; justify-content:center; padding:12px 14px; border:none; border-radius:var(--border-radius-sm); font-size:0.95rem; font-weight:800; cursor:pointer; transition:var(--transition-smooth); background:#10b981; color:#ffffff; margin:0;">
+                    <span>Payment</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 2: CHECKOUT -->
+            <div id="cartStep2Panel" style="display:none; flex-direction:column; height:100%;">
+              <!-- Step 2 Header -->
+              <div class="cart-header" style="background: rgba(16,185,129,0.08); border-bottom-color: rgba(16,185,129,0.2);">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-circle-check" style="color:#10b981; font-size:1rem;"></i>
+                  <h2 style="color:#10b981; font-size:1rem;">Order Confirmed</h2>
+                </div>
+                <button onclick="backToOrderList()" style="border:none; background:rgba(255,255,255,0.07); color:var(--text-secondary); border-radius:var(--border-radius-sm); padding:5px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                  <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+              </div>
+
+              <!-- Checkout Content (scrollable) -->
+              <div style="flex:1; overflow-y:auto; padding:16px 20px 0 20px;">
+                <!-- Table picker if Dine-in -->
+                <div id="cartTableSelectorWrapper" style="display:flex; gap:8px; margin-bottom:12px; align-items:center; width:100%;">
+                  <select class="cart-table-selector" id="cartTableSelect" style="flex:1; min-width:0;">
+                    <!-- Rendered in app.js -->
+                  </select>
+                  <button type="button" class="btn-secondary" id="transferTableBtn" onclick="openTransferTableModal()" style="display:none; height:42px; padding:0 12px; font-size:0.85rem; font-weight:700; border-radius:var(--border-radius-sm); border:1px solid var(--input-border); background:var(--input-bg); color:var(--text-primary); cursor:pointer; align-items:center; gap:5px; white-space:nowrap;" title="စားပွဲပြောင်းမည်">
+                    <i class="fa-solid fa-right-from-bracket"></i> ပြောင်းမည်
+                  </button>
+                </div>
+
+                <!-- Member selector -->
+                <div id="cartMemberSelectorWrapper" style="display:flex; gap:8px; margin-bottom:12px; align-items:center; width:100%;">
+                  <select class="cart-table-selector" id="cartMemberSelect" style="flex:1; min-width:0; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); height: 42px; padding: 0 10px; border-radius: var(--border-radius-sm); font-size: 0.9rem; outline: none; cursor: pointer;" onchange="handleCartMemberChange(this.value)">
+                    <!-- Rendered in app.js -->
+                  </select>
+                </div>
+
+                <!-- Presets -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+                  <div class="form-group" style="margin:0;">
+                    <label for="cartTaxPresetSelect" style="font-size:0.72rem; font-weight:bold; margin-bottom:4px; display:block; color:var(--text-secondary);">Tax</label>
+                    <select id="cartTaxPresetSelect" onchange="applyCartTaxPreset(this.value)" style="width:100%; padding:6px 10px; background:var(--input-bg); border:1px solid var(--panel-border); border-radius:var(--border-radius-sm); color:var(--text-primary); font-size:0.8rem; outline:none; cursor:pointer;"></select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label for="cartDiscountPresetSelect" style="font-size:0.72rem; font-weight:bold; margin-bottom:4px; display:block; color:var(--text-secondary);">Discount</label>
+                    <select id="cartDiscountPresetSelect" onchange="applyCartDiscountPreset(this.value)" style="width:100%; padding:6px 10px; background:var(--input-bg); border:1px solid var(--panel-border); border-radius:var(--border-radius-sm); color:var(--text-primary); font-size:0.8rem; outline:none; cursor:pointer;"></select>
+                  </div>
+                </div>
+
+                <!-- Billing -->
+                <div class="billing-line"><span>သင့်ငွေ (Subtotal)</span><span class="billing-val" id="cartSubtotalText">0 MMK</span></div>
+                <div class="billing-line" id="cartDiscountLine" style="display:none; color:var(--accent-danger);"><span>လျှော့စျေး</span><span class="billing-val" id="cartDiscountText">-0 MMK</span></div>
+                <div class="billing-line"><span>အခွန် (<span id="cartTaxRateText">0</span>%)</span><span class="billing-val" id="cartTaxText">0 MMK</span></div>
+                <div class="billing-line total"><span>စုစုပေါင်း</span><span class="billing-val" id="cartTotalText">0 MMK</span></div>
+              </div>
+
+              <!-- Action Buttons pinned at bottom -->
+              <div style="padding:16px 20px;">
+                <div style="display:flex; gap:10px; width:100%;">
+                  <button class="cart-action-btn send" id="cartSendBtn" style="flex:1.2; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border:none; border-radius:var(--border-radius-sm); font-size:1rem; font-weight:800; cursor:pointer; transition:var(--transition-smooth); background:#5c3d4f; color:#ffffff;">
+                    <span>Send</span>
+                    <span id="cartSendCountBadge" style="background:rgba(0,0,0,0.4); border-radius:4px; padding:2px 8px; font-size:0.8rem; font-weight:700; color:#ffffff; display:none;">0</span>
+                  </button>
+                  <button class="cart-action-btn payment" id="cartPaymentBtn" style="flex:1; display:flex; align-items:center; justify-content:center; padding:14px 16px; border:none; border-radius:var(--border-radius-sm); font-size:1rem; font-weight:800; cursor:pointer; transition:var(--transition-smooth); background:#e2e8f0; color:#1a1a1a;">
+                    <span>Payment</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+
+
+
+
+      <!-- D. KITCHEN DISPLAY PANE (KDS) -->
+      <section class="content-pane" id="kitchen-pane">
+        <div class="kitchen-header-row">
+          <div>
+            <h2 style="font-weight: 800; font-size: 1.3rem;">မီးဖိုချောင်သုံး အော်ဒါစောင့်ကြည့်စနစ် (KDS)</h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">ချက်ပြုတ်ရန်ကျန်သော မှာယူမှုများနှင့် ချက်ပြုတ်ပြီးစီးမှု အခြေအနေများကို စီမံရန်</p>
+          </div>
+          <div style="font-weight: bold; background: var(--accent-warning-glow); border: 1px solid var(--accent-warning); color: var(--accent-warning); padding: 6px 12px; border-radius: var(--border-radius-md); font-size: 0.85rem;">
+            Kitchen Screen Mode
+          </div>
+        </div>
+        
+        <div class="kitchen-grid" id="kitchenOrdersGrid">
+          <!-- Rendered in app.js -->
+        </div>
+      </section>
+
+      <!-- E. MARKET PURCHASES PANE (EXPENSE LOG) -->
+      <section class="content-pane" id="market-pane">
+        <div class="market-layout" style="max-width: 1200px; margin: 0 auto; align-items: start; gap: 20px;">
+
+          <!-- Left Column: Expenses Log -->
+          <div style="background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 15px;">
+              <h3 style="font-weight: 800; font-size: 1.15rem; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-brand-blue);"></i> ဈေးဝယ်စရိတ်မှတ်တမ်း (Expenses Log)
+              </h3>
+              <button type="button" id="toggleExpenseFormBtn" onclick="toggleExpenseForm()" style="padding: 8px 14px; background: var(--accent-brand-blue); border: none; border-radius: var(--border-radius-sm); color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; height: 32px;">
+                <i class="fa-solid fa-plus"></i> New Record
+              </button>
+            </div>
+
+            <!-- Top action bar: filters -->
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,0.02); padding: 10px; border-radius: var(--border-radius-md); border: 1px solid var(--panel-border); margin-bottom: 15px;">
+              <span style="font-size: 0.8rem; font-weight: bold; color: var(--text-secondary);">ရက်စွဲ စစ်ထုတ်ရန်:</span>
+              <input type="date" id="expenseFilterStartDate" class="form-control" style="width: 130px; padding: 4px 6px; font-size: 0.8rem; height: 28px;" onchange="filterExpenses()">
+              <span style="color: var(--text-muted); font-size: 0.75rem;">မှ</span>
+              <input type="date" id="expenseFilterEndDate" class="form-control" style="width: 130px; padding: 4px 6px; font-size: 0.8rem; height: 28px;" onchange="filterExpenses()">
+              
+              <!-- Actions Dropdown -->
+              <div class="dropdown" style="position: relative; display: inline-block;">
+                <button type="button" id="expenseActionsBtn" onclick="toggleExpenseActionsDropdown(event)" style="padding: 4px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; height: 28px; font-weight: bold; display: flex; align-items: center; gap: 6px;" disabled>
+                  <i class="fa-solid fa-gears"></i> Actions <i class="fa-solid fa-chevron-down" style="font-size: 0.6rem;"></i>
+                </button>
+                <div id="expenseActionsDropdown" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 5px; background: var(--bg-secondary); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); min-width: 180px; box-shadow: var(--shadow-lg); z-index: 100;">
+                  <button type="button" onclick="deleteSelectedExpenses()" style="width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: var(--accent-danger); font-size: 0.78rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'" onmouseout="this.style.background='none'">
+                    <i class="fa-solid fa-trash-can"></i> ရွေးချယ်ထားသည်များဖျက်မည်
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" onclick="clearExpenseFilters()" style="padding: 4px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; height: 28px; font-weight: bold;">Clear</button>
+            </div>
+
+            <!-- Expense List Table -->
+            <div style="overflow-x: auto;">
+              <table class="expense-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: center; padding: 12px 8px;"><input type="checkbox" id="selectAllExpenses" onchange="toggleSelectAllExpenses(this)" style="cursor: pointer; width: 15px; height: 15px; vertical-align: middle;"></th>
+                    <th style="width: 120px; min-width: 120px; white-space: nowrap;">ရက်စွဲ</th>
+                    <th>ဝယ်ယူသည့်အရာ</th>
+                    <th>အရေအတွက်</th>
+                    <th>ကုန်ကျစရိတ်</th>
+                    <th>ဆက်စပ်မှု</th>
+                  </tr>
+                </thead>
+                <tbody id="marketExpensesTableBody">
+                  <!-- Rendered in app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Right Column: Inventory & Low Stock Alerts -->
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            
+            <!-- Low Stock Alerts Panel -->
+            <div style="background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
+              <h3 style="font-weight: 800; font-size: 1.1rem; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i> Low Stock Alerts
+              </h3>
+              <div id="lowStockAlertsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+                <!-- Rendered dynamically in app.js -->
+              </div>
+            </div>
+
+            <!-- Current Inventory Status Panel -->
+            <div style="background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
+              <h3 style="font-weight: 800; font-size: 1.1rem; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-boxes-stacked" style="color: var(--accent-success);"></i> စတော့အခြေအနေ (Inventory Status)
+              </h3>
+              <div id="inventoryStatusList" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 4px;">
+                <!-- Rendered dynamically in app.js -->
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- E2. INVENTORY PANE -->
+      <section class="content-pane" id="inventory-pane">
+        <div class="market-layout" style="max-width: 1200px; margin: 0 auto; display: flex; align-items: start; gap: 20px;">
+          <!-- Left Column: Inventory List -->
+          <div style="background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-lg); padding: 20px; box-shadow: var(--shadow-sm); flex: 2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 15px;">
+              <h3 style="font-weight: 800; font-size: 1.15rem; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-boxes-stacked" style="color: var(--accent-brand-blue);"></i> စတော့စီမံခန့်ခွဲမှု (Inventory Management)
+              </h3>
+              <button type="button" onclick="openAddInventoryModal()" style="padding: 8px 14px; background: var(--accent-brand-blue); border: none; border-radius: var(--border-radius-sm); color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; height: 32px;">
+                <i class="fa-solid fa-plus"></i> Add Item
+              </button>
+            </div>
+            
+            <!-- Table of inventory items -->
+            <div style="overflow-x: auto;">
+              <table class="expense-table">
+                <thead>
+                  <tr>
+                    <th>ပစ္စည်းအမည် (Item)</th>
+                    <th>လက်ရှိလက်ကျန် (Stock)</th>
+                    <th>ယူနစ် (Unit)</th>
+                    <th>အနိမ့်ဆုံး သတ်မှတ်ချက် (Min Stock)</th>
+                    <th style="width: 250px; text-align: center;">လုပ်ဆောင်ချက်များ (Actions)</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody">
+                  <!-- Rendered dynamically in app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Right Column: Inventory Transaction History / Audit Logs -->
+          <div style="background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-lg); padding: 20px; box-shadow: var(--shadow-sm); flex: 1; max-width: 380px;">
+            <h3 style="font-weight: 800; font-size: 1.1rem; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-success);"></i> လှုပ်ရှားမှု မှတ်တမ်း (Stock History)
+            </h3>
+            <div id="inventoryHistoryList" style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 4px;">
+              <!-- Rendered dynamically in app.js -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- F. REPORTS PANE -->
+      <section class="content-pane" id="reports-pane">
+        <div class="report-header-row">
+          <div>
+            <h2 style="font-weight: 800; font-size: 1.3rem;">ဆိုင်၏ အရောင်းနှင့် အသုံးစရိတ် အစီရင်ခံစာ</h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">ယနေ့ အရောင်းစုစုပေါင်းနှင့် ဈေးဝယ်စရိတ် အသေးစိတ် နှိုင်းယှဉ်ချက်</p>
+          </div>
+          <div>
+            <button class="btn-add-item" onclick="exportDataToCSV()" style="background: var(--accent-success);">
+              <i class="fa-solid fa-file-excel" style="margin-right: 6px;"></i> CSV Export ထုတ်ရန်
+            </button>
+          </div>
+        </div>
+        
+        <div class="reports-grid">
+          <!-- Sales History Table Card -->
+          <div class="table-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+              <h3 style="font-weight: 700; margin: 0;">Sales History</h3>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">ရက်စွဲ စစ်ထုတ်ရန်:</span>
+                <select id="salesHistoryPeriodFilter" class="form-control" style="width: 140px; height: 32px; padding: 0 8px; font-size: 0.8rem; border-radius: var(--border-radius-sm); outline: none; cursor: pointer;" onchange="renderReportsPane()">
+                  <option value="today" selected>Daily (ယနေ့)</option>
+                  <option value="7days">7 Days (၇ ရက်စာ)</option>
+                  <option value="10days">10 Days (၁၀ ရက်စာ)</option>
+                  <option value="1month">1 Month (၁ လစာ)</option>
+                  <option value="all">All (အားလုံး)</option>
+                </select>
+              </div>
+            </div>
+            <div class="report-table-wrapper">
+              <table class="sales-report-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>အချိန်</th>
+                    <th>စားပွဲ/ပါဆယ်</th>
+                    <th>စုစုပေါင်းရောင်းရငွေ</th>
+                  </tr>
+                </thead>
+                <tbody id="salesHistoryReportTableBody">
+                  <!-- Rendered in app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Profit & Loss Summary Card -->
+          <div class="table-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <h3 style="font-weight: 700; margin-bottom: 20px;">ဘဏ္ဍာရေး အနှစ်ချုပ် (Financial Summary)</h3>
+              
+              <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px;">
+                  <span style="color: var(--text-secondary);">စုစုပေါင်း ဝင်ငွေ (Gross Revenue)</span>
+                  <span style="font-weight: 800; color: var(--accent-success);" id="reportGrossRevenueText">0 MMK</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px;">
+                  <span style="color: var(--text-secondary);">စုစုပေါင်း ဈေးဝယ်စရိတ် (Total Expenses)</span>
+                  <span style="font-weight: 800; color: var(--accent-danger);" id="reportTotalExpensesText">0 MMK</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; border-bottom: 2px solid var(--panel-border); padding-bottom: 10px; margin-top: 10px;">
+                  <span style="font-weight: bold; color: var(--text-primary);">အသားတင် အမြတ်/အရှုံး (Net Profit)</span>
+                  <span style="font-weight: 800; font-size: 1.2rem;" id="reportNetProfitText">0 MMK</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Simple Progress/Visual comparison -->
+            <div style="margin-top: 30px; background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: var(--border-radius-md); border: 1px solid var(--panel-border);">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">
+                <span>အသုံးစရိတ် နှင့် ဝင်ငွေ အချိုးအစား</span>
+                <span id="revenueExpenseRatioText">0%</span>
+              </div>
+              <div style="height: 10px; background: var(--accent-danger); border-radius: 5px; overflow: hidden; display: flex;">
+                <div id="revenueRatioProgressBar" style="height: 100%; background: var(--accent-success); width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Transaction History Card -->
+        <div class="table-card" style="margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="font-weight: 700; margin: 0;">ငွေသွင်း/ငွေထုတ်မှတ်တမ်း (Transaction History Ledger)</h3>
+            
+            <!-- Filters row -->
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <!-- Filter by Date -->
+              <input type="date" id="txHistoryDateFilter" onchange="renderReportsPane()" style="padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); font-size: 0.82rem; outline: none; cursor: pointer;">
+              
+              <!-- Filter by Type (In/Out) -->
+              <select id="txHistoryTypeFilter" onchange="renderReportsPane()" style="padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); font-size: 0.82rem; outline: none; cursor: pointer;">
+                <option value="ALL">All Types (အားလုံး)</option>
+                <option value="in">In (ငွေသွင်း)</option>
+                <option value="out">Out (ငွေထုတ်)</option>
+              </select>
+              
+              <!-- Filter by Method -->
+              <select id="txHistoryMethodFilter" onchange="renderReportsPane()" style="padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); font-size: 0.82rem; outline: none; cursor: pointer;">
+                <option value="ALL">All Accounts (အားလုံး)</option>
+                <option value="Cash">Cash (ငွေသား)</option>
+                <option value="KPAY">KPAY</option>
+                <option value="MMQR">MMQR</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="report-table-wrapper" style="max-height: 350px; overflow-y: auto;">
+            <table class="sales-report-table">
+              <thead>
+                <tr>
+                  <th>ရက်စွဲ/အချိန်</th>
+                  <th>အမျိုးအစား</th>
+                  <th>အကောင့်</th>
+                  <th>အကြောင်းပြချက် / မှတ်ချက်</th>
+                  <th style="text-align: right;">ပမာဏ</th>
+                </tr>
+              </thead>
+              <tbody id="txHistoryReportTableBody">
+                <!-- Rendered dynamically in app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Register Shift History Card -->
+        <div class="table-card" style="margin-top: 20px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="font-weight: 700; margin: 0;">ငွေကိုင်ဆိုင်းပိတ်မှတ်တမ်းများ (Register Shift History Log)</h3>
+          </div>
+          <div class="report-table-wrapper" style="max-height: 350px; overflow-y: auto;">
+            <table class="sales-report-table">
+              <thead>
+                <tr>
+                  <th>ဖွင့်လှစ်ချိန် / ပိတ်သိမ်းချိန်</th>
+                  <th>ငွေကိုင် (Cashier)</th>
+                  <th style="text-align: right;">ဆိုင်ဖွင့်ငွေ (Opening)</th>
+                  <th style="text-align: right;">ရှိရမည့်ငွေ (Expected)</th>
+                  <th style="text-align: right;">လက်တွေ့ငွေ (Actual)</th>
+                  <th style="text-align: right;">ကွာဟချက် (Difference)</th>
+                  <th>မှတ်ချက် (Closing Note)</th>
+                </tr>
+              </thead>
+              <tbody id="shiftHistoryReportTableBody">
+                <!-- Rendered dynamically in app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- G. SETTINGS PANE -->
+      <section class="content-pane" id="settings-pane">
+        <div class="settings-grid" style="grid-template-columns: 1fr; max-width: 600px; margin: 0 auto; gap: 20px;">
+          
+          <div class="settings-card">
+            <h3 style="font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">
+              System Settings
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <!-- 1. Language -->
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;">System Language (စနစ်သုံးဘာသာစကား)</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">Choose the interface language.</p>
+                </div>
+                <select id="settingLanguageSelect" class="form-control" style="width: 160px; cursor: pointer; text-align: center;">
+                  <option value="my" selected>မြန်မာ (Myanmar)</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              
+              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
+              
+              <!-- 2. Dark/Light Mode -->
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;">Theme Appearance (မျက်နှာပြင်အရောင်)</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">Toggle between dark and light modes.</p>
+                </div>
+                <button type="button" class="btn-primary" id="settingsThemeToggleBtn" style="width: 160px; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i class="fa-solid fa-moon"></i> Dark Mode
+                </button>
+              </div>
+              
+              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
+              
+              <!-- 3. Font Size -->
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;">Font Size Scaling (စာလုံးအရွယ်အစား)</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">Adjust the system font size scaling.</p>
+                </div>
+                <div style="display: flex; gap: 5px; width: 160px;">
+                  <button type="button" class="btn-secondary" id="fontScaleDecreaseBtn" style="flex: 1; padding: 10px; border: 1px solid var(--input-border); border-radius: var(--border-radius-sm); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; font-size: 0.85rem;" title="Decrease">- A</button>
+                  <button type="button" class="btn-secondary" id="fontScaleResetBtn" style="padding: 10px; border: 1px solid var(--input-border); border-radius: var(--border-radius-sm); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; font-size: 0.85rem;" title="Reset font scale"><i class="fa-solid fa-rotate-right"></i></button>
+                  <button type="button" class="btn-secondary" id="fontScaleIncreaseBtn" style="flex: 1; padding: 10px; border: 1px solid var(--input-border); border-radius: var(--border-radius-sm); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; font-size: 0.85rem;" title="Increase">+ A</button>
+                </div>
+              </div>
+              
+              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
+              
+              <!-- 4. Backup & Restore Database -->
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;">Database Backup & Restore (ဒေတာ သိမ်းဆည်း/ပြန်တင်ရန်)</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">Export your sales and settings to a JSON file or import them back.</p>
+                </div>
+                <div style="display: flex; gap: 10px; width: 100%; max-width: 440px;">
+                  <button type="button" class="btn-primary" onclick="exportDatabaseState()" style="flex: 1; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent-success); color: white;">
+                    <i class="fa-solid fa-download"></i> Backup
+                  </button>
+                  <button type="button" class="btn-primary" onclick="triggerRestoreDatabase()" style="flex: 1; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent-brand-blue); color: white;">
+                    <i class="fa-solid fa-upload"></i> Restore
+                  </button>
+                  <button type="button" class="btn-primary" onclick="resetDatabaseState()" style="flex: 1; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent-danger); color: white;">
+                    <i class="fa-solid fa-trash-can"></i> Reset
+                  </button>
+                  <input type="file" id="databaseRestoreFileInput" accept=".json" style="display: none;" onchange="importDatabaseState(event)">
+                </div>
+              </div>
+              
+              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
+              
+              <!-- 5. Cloud Sync -->
+              <div id="settingsCloudSyncSection" style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;">Cloud Backup &amp; Sync</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">ဆိုင်ပိတ်ခါနီး တစ်နေ့တာ ဒေတာများကို Namecheap ဆာဗာသို့ Backup တင်ရန်နှင့် ပြန်လည်ဆွဲယူရန်</p>
+                </div>
+                <div style="width: 100%; max-width: 320px; display: flex; gap: 10px;">
+                  <button type="button" class="btn-primary" id="cloudSyncBtn" onclick="triggerCloudBackup()" style="flex: 1; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent-brand-blue); color: white;">
+                    <i class="fa-solid fa-cloud-arrow-up" id="cloudSyncIcon"></i> <span id="cloudSyncText">Cloud Upload</span>
+                  </button>
+                  <button type="button" class="btn-primary" id="cloudDownloadBtn" onclick="triggerCloudDownload()" style="flex: 1; padding: 10px; border-radius: var(--border-radius-sm); border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent-success); color: white;">
+                    <i class="fa-solid fa-cloud-arrow-down" id="cloudDownloadIcon"></i> <span id="cloudDownloadText">Cloud Download</span>
+                  </button>
+                </div>
+              </div>
+
+              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
+
+              <!-- 6. Local Network Tablet Connection -->
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div>
+                  <h4 style="font-weight: 600; margin: 0;"><i class="fa-solid fa-wifi" style="color: var(--accent-primary);"></i> တက်ဘလက် ချိတ်ဆက်ရန် URL</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">ဆိုင်တွင်း Wi-Fi ဖြင့် တက်ဘလက် / ဖုန်း Browser ထဲတွင် ရိုက်ထည့်ပါ</p>
+                </div>
+                <div style="width: 100%; max-width: 320px;">
+                  <div style="padding: 12px; border-radius: var(--border-radius-sm); background: var(--bg-tertiary); border: 1px dashed var(--accent-primary); text-align: center;">
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 6px;">တက်ဘလက် Browser တွင် ဤ URL ကို ရိုက်ထည့်ပါ</div>
+                    <div id="settingsLocalIpDisplay" style="font-size: 1.05rem; font-weight: 800; color: var(--accent-primary); letter-spacing: 0.5px; word-break: break-all;">စစ်ဆေးနေသည်...</div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            
+          </div>
+        </div>
+      </section>
+
+      <section class="content-pane" id="admin-pane">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--panel-border); padding-bottom: 15px;">
+          <h2 style="font-weight: 800; font-size: 1.35rem; margin: 0; color: var(--text-primary);">Admin Management Panel</h2>
+          <button type="button" class="btn-primary" onclick="openRestaurantConfigModal()" style="padding: 10px 16px; font-weight: bold; border-radius: var(--border-radius-sm); border: none; background: var(--accent-brand-blue); color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.85rem;">
+            <i class="fa-solid fa-screwdriver-wrench"></i> ဆိုင်အထွေထွေပြင်ဆင်မှုများ (Restaurant Settings)
+          </button>
+        </div>
+
+        <div class="settings-grid">
+          
+          <!-- Unified Products & Categories Manager -->
+          <div class="settings-card" style="grid-column: 1 / -1; margin-top: 5px;">
+            <div class="product-manager-header" style="border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+              <div style="display: flex; gap: 8px;">
+                <button class="pos-mode-btn active" id="adminTabProductsBtn" onclick="switchAdminSubtab('products')" style="padding: 8px 16px; border-radius: var(--border-radius-sm); font-weight: 700; cursor: pointer; font-size: 0.88rem;">
+                  <i class="fa-solid fa-utensils" style="margin-right: 6px;"></i>Products
+                </button>
+                <button class="pos-mode-btn" id="adminTabCategoriesBtn" onclick="switchAdminSubtab('categories')" style="padding: 8px 16px; border-radius: var(--border-radius-sm); font-weight: 700; cursor: pointer; font-size: 0.88rem;">
+                  <i class="fa-solid fa-tags" style="margin-right: 6px;"></i>Categories
+                </button>
+                <button class="pos-mode-btn" id="adminTabPaymentMethodsBtn" onclick="switchAdminSubtab('payments')" style="padding: 8px 16px; border-radius: var(--border-radius-sm); font-weight: 700; cursor: pointer; font-size: 0.88rem;">
+                  <i class="fa-solid fa-credit-card" style="margin-right: 6px;"></i>Payments
+                </button>
+                <button class="pos-mode-btn" id="adminTabLoyaltyBtn" onclick="switchAdminSubtab('loyalty')" style="padding: 8px 16px; border-radius: var(--border-radius-sm); font-weight: 700; cursor: pointer; font-size: 0.88rem;">
+                  <i class="fa-solid fa-users" style="margin-right: 6px;"></i>Loyalty
+                </button>
+              </div>
+              
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <!-- Wrapper for Products Actions -->
+                <div style="display: flex; gap: 8px; align-items: center;" id="adminProductsActions">
+                  <button class="btn-add-item" id="adminAddProductBtn" onclick="openAddProductModal()" style="margin: 0;">+ New Product</button>
+                  
+                  <!-- Three-bar menu button dropdown -->
+                  <div style="position: relative; display: inline-block;">
+                    <button type="button" class="btn-primary" onclick="toggleProductsMenu(event)" style="background: rgba(255,255,255,0.08); border: 1px solid var(--panel-border); font-size: 1rem; width: 40px; height: 40px; border-radius: var(--border-radius-md); cursor: pointer; color: var(--text-primary); display: flex; align-items: center; justify-content: center; transition: var(--transition-smooth); margin: 0;" title="Actions Menu">
+                      <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div id="productsActionsDropdown" class="products-actions-dropdown">
+                      <a href="#" onclick="triggerProductImport(event)" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.88rem; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+                        <i class="fa-solid fa-file-import" style="color: var(--accent-success); width: 16px;"></i>
+                        <span style="flex:1;">Import</span>
+                        <small style="color:var(--text-muted); font-weight:800;">Excel / JSON</small>
+                      </a>
+                      <div class="products-dropdown-row" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 0.88rem;">
+                        <i class="fa-solid fa-file-export" style="color: var(--accent-brand-blue); width: 16px;"></i>
+                        <span style="flex:1;">Export</span>
+                        <button type="button" onclick="exportProductsToExcel(event)" class="products-format-btn">Excel</button>
+                        <button type="button" onclick="exportProductsToJSON(event)" class="products-format-btn">JSON</button>
+                      </div>
+                      <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 5px 0; background: var(--panel-border); height: 1px;">
+                      <a href="#" id="deleteSelectedOptionBtn" onclick="deleteSelectedProducts(event)" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: var(--accent-danger); font-size: 0.88rem; text-decoration: none; transition: background 0.2s; opacity: 0.5; pointer-events: none;" onmouseover="this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.background='transparent'">
+                        <i class="fa-solid fa-trash-can" style="color: var(--accent-danger); width: 16px;"></i> Delete Selected <span class="badge-count" style="font-weight: bold; margin-left: 2px;"></span>
+                      </a>
+                    </div>
+                  </div>
+                  
+                  <input type="file" id="excelImportFileInput" accept=".xlsx, .xls, .json" style="display: none;" onchange="handleProductImportSelected(this)">
+                </div>
+                
+                <!-- Category Add Button -->
+                <button class="btn-add-item" id="adminAddCategoryBtn" onclick="openAddCategoryModal()" style="display: none; margin: 0;">+ New Category</button>
+                <button class="btn-add-item" id="adminAddPaymentMethodBtn" onclick="openAddPaymentMethodModal()" style="display: none; margin: 0;">+ New Payment Method</button>
+                <button class="btn-add-item" id="adminAddLoyaltyBtn" onclick="openAddLoyaltyModal()" style="display: none; margin: 0;">+ New Member</button>
+              </div>
+            </div>
+            
+            <!-- Products Search & Filter Row -->
+            <div id="adminProductSearchFilterRow" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--panel-border);">
+              <div style="position: relative; flex: 1;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.88rem;"></i>
+                <input type="text" id="adminProductSearchInput" placeholder="Product Name ဖြင့် ရှာဖွေပါ..." oninput="renderSettingsPane()" style="width: 100%; padding: 8px 12px 8px 34px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); font-size: 0.88rem; outline: none; transition: var(--transition-smooth);">
+              </div>
+              <div style="width: 200px;">
+                <select id="adminProductCategoryFilter" onchange="renderSettingsPane()" style="width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); font-size: 0.88rem; outline: none; cursor: pointer; transition: var(--transition-smooth);">
+                  <option value="ALL">All Categories</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Tab 1: Products Edit List -->
+            <div class="product-edit-list" id="settingsProductEditContainer" style="display: block;">
+              <!-- Rendered in app.js -->
+            </div>
+            
+            <!-- Tab 2: Categories Edit List -->
+            <div class="product-edit-list" id="settingsCategoryEditContainer" style="display: none;">
+              <!-- Rendered in app.js -->
+            </div>
+            
+            <!-- Tab 3: Payment Methods Edit List -->
+            <div class="product-edit-list" id="settingsPaymentMethodEditContainer" style="display: none;">
+              <!-- Rendered in app.js -->
+            </div>
+            
+            <!-- Tab 4: Loyalty Members Edit List -->
+            <div class="product-edit-list" id="settingsLoyaltyEditContainer" style="display: none;">
+              <!-- Rendered in app.js -->
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ==========================================================================
+       MODALS & DIALOGS
+       ========================================================================== -->
+  
+  <!-- 1. PRINTER SLIP MODAL (RECEIPT & KITCHEN PRINT SLIP SIMULATION) -->
+  <div class="modal-overlay" id="printerSlipModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="printerSlipModalTitle">Receipt Printing...</h3>
+        <button class="modal-close-btn" onclick="closePrinterSlipModal()">&times;</button>
+      </div>
+      
+      <!-- Thermal paper print simulation content -->
+      <div class="printer-receipt-frame" id="simulatedThermalReceipt">
+        <!-- Rendered dynamically in app.js -->
+      </div>
+      
+      <div class="printer-slip-actions">
+        <button class="btn-modal-action print" onclick="simulatePrintSuccess()">
+          <i class="fa-solid fa-print" style="margin-right: 6px;"></i> Print Slip
+        </button>
+        <button class="btn-modal-action cancel" onclick="closePrinterSlipModal()">ပိတ်မည်</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ADD/EDIT MENU ITEM MODAL -->
+  <div class="modal-overlay" id="menuItemModalOverlay">
+    <div class="modal-card product-modal-card" style="max-width: 720px; width: 95%; padding: 0; overflow: hidden;">
+      <div class="modal-header" style="padding: 16px 18px 12px; border-bottom: 1px solid var(--panel-border); margin: 0;">
+        <div>
+          <h3 id="menuItemModalTitle" style="font-weight: 850; font-size: 1.15rem; margin: 0;">New Product</h3>
+          <p style="margin: 3px 0 0; font-size: 0.78rem; color: var(--text-secondary);">Create menu items, stock tracking, options and recipes.</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeMenuItemModal()">&times;</button>
+      </div>
+
+      <form id="menuItemAddEditForm" style="display: flex; flex-direction: column; max-height: 82vh;">
+        <input type="hidden" id="editProductId">
+        <input type="hidden" id="prodColor" value="#10b981">
+        <input type="file" id="productImageFileInput" accept="image/*" style="display: none;" onchange="handleProductImageSelected(this)">
+
+        <div class="product-modal-tabs" style="display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--panel-border); background: rgba(15, 23, 42, 0.02);">
+          <button type="button" class="product-modal-tab active" data-product-tab="basic" onclick="switchProductModalTab('basic')"><i class="fa-solid fa-circle-info"></i> Basic Info</button>
+          <button type="button" class="product-modal-tab" data-product-tab="advanced" onclick="switchProductModalTab('advanced')"><i class="fa-solid fa-sliders"></i> Advanced</button>
+          <button type="button" class="product-modal-tab" data-product-tab="recipe" onclick="switchProductModalTab('recipe')"><i class="fa-solid fa-mortar-pestle"></i> Recipe / Ingredients</button>
+        </div>
+
+        <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
+          <section class="product-tab-panel active" data-product-panel="basic">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 138px; gap: 18px; align-items: start;">
+              <div style="display: grid; gap: 12px;">
+                <div class="form-group">
+                  <label for="prodName">Product Name</label>
+                  <input type="text" id="prodName" class="form-control" required placeholder="e.g. Cheese Burger" style="height: 42px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label for="prodPrice">Sales Price</label>
+                    <input type="number" id="prodPrice" class="form-control" required value="1.00" step="any" style="height: 42px;">
+                  </div>
+                  <div class="form-group">
+                    <label for="prodCategory">Category</label>
+                    <select id="prodCategory" class="form-control" style="cursor: pointer; height: 42px;"></select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Color</label>
+                  <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px;" id="prodColorPresetsGrid">
+                    <div class="color-preset active" style="background:#10b981; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#10b981', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#ef4444; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#ef4444', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#3b82f6; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#3b82f6', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#f59e0b; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#f59e0b', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#8b5cf6; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#8b5cf6', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#ec4899; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#ec4899', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#f97316; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#f97316', 'prodColor')"></div>
+                    <div class="color-preset" style="background:#14b8a6; width:34px; height:34px; border-radius:8px; cursor:pointer;" onclick="selectColorPreset(this, '#14b8a6', 'prodColor')"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 800; color: var(--text-secondary);">Product Image</label>
+                <div id="productImageUploadZone" onclick="triggerProductImageUpload()" style="width: 128px; height: 128px; border: 1.8px dashed var(--panel-border); border-radius: var(--border-radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: var(--input-bg); overflow: hidden; position: relative; transition: var(--transition-smooth);">
+                  <div id="imageUploadPlaceholder" style="text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 10px;">
+                    <i class="fa-solid fa-camera-retro" style="font-size: 1.8rem; opacity: 0.55;"></i>
+                    <span style="font-size: 0.72rem; font-weight: 800;">+ Add Photo</span>
+                  </div>
+                  <img id="productImagePreview" style="display: none; width: 100%; height: 100%; object-fit: cover;" alt="Preview">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="product-tab-panel" data-product-panel="advanced" style="display:none;">
+            <div style="display: grid; gap: 14px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end;">
+                <div class="form-group">
+                  <label for="prodBarcode" style="display: flex; align-items: center; gap: 6px;">Barcode <i class="fa-solid fa-barcode" style="color: var(--text-muted);"></i></label>
+                  <input type="text" id="prodBarcode" class="form-control" placeholder="e.g. 1234567890" style="height: 42px;">
+                </div>
+                <div class="form-group">
+                  <label for="prodStation">Kitchen / Printer</label>
+                  <select id="prodStation" class="form-control" style="cursor: pointer; height: 42px;">
+                    <option value="Hot Kitchen">Hot Kitchen</option>
+                    <option value="Bar">Bar</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: minmax(160px, 220px) 1fr; gap: 14px; align-items: end;">
+                <div class="form-group" id="prodInitialStockWrapper">
+                  <label for="prodInitialStock">Initial Stock</label>
+                  <input type="number" id="prodInitialStock" class="form-control" value="20" style="height: 42px;">
+                </div>
+                <label for="prodTrackInventory" style="display: inline-flex; align-items: center; gap: 10px; height: 42px; font-size: 0.9rem; font-weight: 800; color: var(--text-primary); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="prodTrackInventory" checked style="width: 18px; height: 18px; accent-color: var(--accent-primary);">
+                  Track stock
+                </label>
+              </div>
+
+              <div class="form-group" id="prodOptionsWrapper">
+                <label for="prodOptions" style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-layer-group" style="color: var(--accent-brand-blue);"></i> Options - optional</label>
+                <textarea id="prodOptions" class="form-control" rows="5" placeholder="Chicken, 0 (default)&#10;Pork, 1000&#10;Seafood, 2000" style="resize: vertical; font-family: inherit; font-size: 0.88rem; line-height: 1.5;"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="product-tab-panel" data-product-panel="recipe" style="display:none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px;">
+              <div>
+                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 850; color: var(--text-primary);">Recipe / Ingredients</h4>
+                <p style="margin: 3px 0 0; font-size: 0.78rem; color: var(--text-secondary);">Use this for dishes that deduct raw inventory when sold.</p>
+              </div>
+              <button type="button" onclick="addProductIngredientRow()" style="padding: 8px 12px; font-size: 0.82rem; background: var(--accent-brand-blue); border: none; border-radius: var(--border-radius-sm); color: white; cursor: pointer; font-weight: 800;">+ Add Ingredient</button>
+            </div>
+            <div id="productRecipeRowsContainer" style="display: flex; flex-direction: column; gap: 8px; min-height: 180px; max-height: 280px; overflow-y: auto; padding: 10px; border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); background: rgba(148, 163, 184, 0.06);"></div>
+          </section>
+        </div>
+
+        <div class="printer-slip-actions" style="margin: 0; border-top: 1px solid var(--panel-border); padding: 12px 18px; background: var(--panel-bg);">
+          <button type="submit" class="btn-modal-action print" style="background: #714B67;">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeMenuItemModal()">Discard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- PRODUCT OPTIONS MODAL -->
+  <div class="modal-overlay" id="productOptionsModalOverlay">
+    <div class="modal-card" style="max-width: 460px; width: 95%;">
+      <div class="modal-header">
+        <h3 id="productOptionsModalTitle" style="font-size: 1.1rem;">ရွေးချယ်မည်</h3>
+        <button class="modal-close-btn" onclick="closeProductOptionsModal()">&times;</button>
+      </div>
+      
+      <p id="productOptionsBasePrice" style="color: var(--text-muted); font-size: 0.85rem; margin: 0 0 14px; padding: 0 2px;"></p>
+      
+      <div id="productOptionsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        <!-- Rendered by JS -->
+      </div>
+      
+      <div class="printer-slip-actions">
+        <button class="btn-modal-action print" id="confirmProductOptionBtn" onclick="confirmProductOptionSelection()">
+          <i class="fa-solid fa-cart-plus" style="margin-right: 6px;"></i>အော်ဒါထဲထည့်မည်
+        </button>
+        <button class="btn-modal-action cancel" onclick="closeProductOptionsModal()">ပိတ်မည်</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE TRANSFER MODAL -->
+  <div class="modal-overlay" id="tableTransferModalOverlay">
+    <div class="modal-card" style="max-width: 480px; width: 95%;">
+      <div class="modal-header">
+        <h3 id="tableTransferModalTitle" style="font-size: 1.1rem;">စားပွဲ ပြောင်းရွှေ့ရန်</h3>
+        <button class="modal-close-btn" onclick="closeTransferTableModal()">&times;</button>
+      </div>
+      
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+        <div class="form-group">
+          <label>လက်ရှိစားပွဲ</label>
+          <input type="text" id="transferSourceTableName" class="form-control" readonly style="opacity: 0.85;">
+        </div>
+        
+        <div class="form-group">
+          <label for="transferTargetTableSelect">ပြောင်းရွှေ့မည့် Target စားပွဲ</label>
+          <select id="transferTargetTableSelect" class="form-control" required style="cursor: pointer;">
+            <!-- Populated dynamically in app.js -->
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>ပြောင်းရွှေ့မည့် ပုံစံ</label>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; font-size: 0.9rem;">
+              <input type="radio" name="transferType" value="all" checked onchange="toggleTransferItemsList(false)">
+              စားပွဲရှိ ဟင်းပွဲအားလုံးကို ရွှေ့မည် (Transfer Entire Order)
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; font-size: 0.9rem;">
+              <input type="radio" name="transferType" value="partial" onchange="toggleTransferItemsList(true)">
+              ရွေးချယ်ထားသော ဟင်းပွဲများကိုသာ ခွဲထုတ်ရွှေ့မည် (Partial Transfer)
+            </label>
+          </div>
+        </div>
+        
+        <!-- Checklist of items for partial transfer -->
+        <div id="transferItemsListWrapper" style="display: none; border: 1px solid var(--modal-border); border-radius: var(--border-radius-md); padding: 12px; max-height: 180px; overflow-y: auto; background: var(--input-bg);">
+          <label style="margin-bottom: 8px; display: block; font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">ပြောင်းရွှေ့လိုသည့် ဟင်းပွဲများကို ရွေးချယ်ပြီး အရေအတွက် သတ်မှတ်ပါ -</label>
+          <div id="transferItemsCheckboxContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Generated dynamically in app.js -->
+          </div>
+        </div>
+      </div>
+      
+      <div class="printer-slip-actions" style="margin-top: 15px;">
+        <button class="btn-modal-action print" onclick="executeTableTransfer()">
+          <i class="fa-solid fa-exchange-alt" style="margin-right: 6px;"></i>ရွှေ့ပြောင်းမည်
+        </button>
+        <button class="btn-modal-action cancel" onclick="closeTransferTableModal()">ပိတ်မည်</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ADD/EDIT CATEGORY MODAL -->
+  <div class="modal-overlay" id="categoryModalOverlay" style="z-index: 1020;">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="categoryModalTitle" style="font-weight: 800; font-size: 1.15rem;">Create new category</h3>
+        <button class="modal-close-btn" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      
+      <form id="categoryAddEditForm" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+        <input type="hidden" id="editCategoryId">
+        
+        <div class="form-group">
+          <label for="categoryName">Category name</label>
+          <input type="text" id="categoryName" class="form-control" required placeholder="e.g. Soft Drinks">
+        </div>
+
+        <div class="form-group">
+          <label>Color</label>
+          <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-top: 5px;" id="catColorPresetsGrid">
+            <div class="color-preset active" style="background:#10b981; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#10b981', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#ef4444; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#ef4444', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#3b82f6; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#3b82f6', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#f59e0b; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#f59e0b', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#8b5cf6; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#8b5cf6', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#ec4899; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#ec4899', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#f97316; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#f97316', 'categoryColor')"></div>
+            <div class="color-preset" style="background:#14b8a6; width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;" onclick="selectColorPreset(this, '#14b8a6', 'categoryColor')"></div>
+          </div>
+          <input type="hidden" id="categoryColor" value="#10b981">
+        </div>
+        
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print" style="background: #714B67;">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeCategoryModal()">Discard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2B. ADD/EDIT PAYMENT METHOD MODAL -->
+  <div class="modal-overlay" id="paymentMethodModalOverlay" style="z-index: 1020;">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="paymentMethodModalTitle" style="font-weight: 800; font-size: 1.15rem;">Create new payment method</h3>
+        <button class="modal-close-btn" onclick="closePaymentMethodModal()">&times;</button>
+      </div>
+      
+      <form id="paymentMethodAddEditForm" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+        <input type="hidden" id="editPaymentMethodId">
+        
+        <div class="form-group">
+          <label for="paymentMethodName">Payment Method name</label>
+          <input type="text" id="paymentMethodName" class="form-control" required placeholder="e.g. Kpay">
+        </div>
+
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5;">
+          Payment methods are simple checkout labels only. Recommended setup: Cash, KPAY, MMQR.
+        </p>
+        
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print" style="background: #714B67;">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closePaymentMethodModal()">Discard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2C. ADD/EDIT LOYALTY MEMBER MODAL -->
+  <div class="modal-overlay" id="loyaltyMemberModalOverlay" style="z-index: 1020;">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="loyaltyMemberModalTitle" style="font-weight: 800; font-size: 1.15rem;">မန်ဘာအကောင့်အသစ်ဖွင့်ခြင်း (Create Member)</h3>
+        <button class="modal-close-btn" onclick="closeLoyaltyMemberModal()">&times;</button>
+      </div>
+      
+      <form id="loyaltyMemberAddEditForm" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;" onsubmit="handleLoyaltyMemberFormSubmit(event)">
+        <input type="hidden" id="editLoyaltyMemberId">
+        
+        <div class="form-group">
+          <label for="loyaltyMemberName">အမည် (Name)</label>
+          <input type="text" id="loyaltyMemberName" class="form-control" required placeholder="e.g. မောင်မောင်">
+        </div>
+
+        <div class="form-group">
+          <label for="loyaltyMemberPhone">ဖုန်းနံပါတ် (Phone Number)</label>
+          <input type="text" id="loyaltyMemberPhone" class="form-control" required placeholder="e.g. 0977xxxxxxx">
+        </div>
+
+        <div class="form-group">
+          <label for="loyaltyMemberPoints">ပွိုင့်ပြင်ဆင်ရန် (Adjust Points)</label>
+          <input type="number" id="loyaltyMemberPoints" class="form-control" required value="0" min="0">
+        </div>
+        
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print" style="background: var(--accent-primary);">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeLoyaltyMemberModal()">Discard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD/EDIT TABLE MODAL -->
+  <div class="modal-overlay" id="tableModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="tableModalTitle">စားပွဲအသစ်ထည့်ရန်</h3>
+        <button class="modal-close-btn" onclick="closeTableModal()">&times;</button>
+      </div>
+      
+      <form id="tableAddEditForm">
+        <input type="hidden" id="editTableId">
+        
+        <div class="form-group">
+          <label for="tableNameInput">စားပွဲအမည်</label>
+          <input type="text" id="tableNameInput" class="form-control" required placeholder="ဥပမာ- Table 9">
+        </div>
+        
+        <div class="form-group">
+          <label for="tableSeatsInput">လူဦးရေဝင်ဆံ့မှု (Seats)</label>
+          <input type="number" id="tableSeatsInput" class="form-control" required placeholder="4" value="4">
+        </div>
+        
+        <div class="form-group" id="tableStatusGroup" style="display: none; margin-bottom: 15px;">
+          <label for="tableStatusInput" style="font-weight: 600; color: var(--text-primary);">အခြေအနေ ပြောင်းလဲရန် (Change Status)</label>
+          <select id="tableStatusInput" class="form-control" style="background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); height: 42px; padding: 0 10px; border-radius: var(--border-radius-sm); font-size: 0.9rem; outline: none; cursor: pointer; width: 100%;">
+            <option value="available">အားသည် (Available)</option>
+            <option value="reserved">ဘိုကင်လုပ် (Booked)</option>
+            <option value="occupied">စားသုံးဆဲ (Occupied)</option>
+            <option value="billed">ဘေလ်တောင်း (Bill Requested)</option>
+          </select>
+        </div>
+        
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print">သိမ်းဆည်းမည်</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeTableModal()">ပိတ်မည်</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. ADD/EDIT USER MODAL -->
+  <div class="modal-overlay" id="userModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="userModalTitle">New User</h3>
+        <button class="modal-close-btn" onclick="closeUserModal()">&times;</button>
+      </div>
+      
+      <form id="userAddEditForm">
+        <input type="hidden" id="editUserId">
+        
+        <div class="form-group">
+          <label for="usrFullName">Full Name</label>
+          <input type="text" id="usrFullName" class="form-control" required placeholder="e.g. Staff 1">
+        </div>
+        
+        <div class="form-group">
+          <label for="usrUsername">Username</label>
+          <input type="text" id="usrUsername" class="form-control" required placeholder="e.g. staff1">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="usrPassword">Password</label>
+            <input type="password" id="usrPassword" class="form-control" placeholder="New user: required / Edit: leave blank to keep">
+          </div>
+          <div class="form-group">
+            <label for="usrRole">Role</label>
+            <select id="usrRole" class="form-control">
+              <option value="cashier">Cashier</option>
+              <option value="waiter">Waiter</option>
+              <option value="owner">Owner</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span>Allowed Tabs</span>
+            <button type="button" onclick="setUserAccessFromRole()" style="border:1px solid var(--panel-border); background:var(--input-bg); color:var(--text-secondary); border-radius:var(--border-radius-sm); padding:5px 9px; font-size:0.74rem; font-weight:800; cursor:pointer;">Use Role Default</button>
+          </label>
+          <div id="userTabAccessChecklist" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; padding:10px; border:1px solid var(--panel-border); border-radius:var(--border-radius-md); background:rgba(148,163,184,0.06);"></div>
+        </div>
+        
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeUserModal()">Discard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. ACTIVE ORDERS LIST MODAL (ORDERS POPUP) -->
+  <div class="modal-overlay" id="activeOrdersListModal">
+    <div class="modal-card" style="max-width: 580px; width: 95%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="margin-bottom: 12px; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin: 0;">
+          <i class="fa-solid fa-receipt" style="color: var(--accent-primary);"></i> အော်ဒါစာရင်းများ (Orders)
+        </h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <select id="activeOrdersFilter" class="form-control" style="width: 150px; height: 32px; padding: 0 8px; font-size: 0.8rem; font-weight: bold; border-radius: var(--border-radius-sm); background: var(--input-bg); border: 1px solid var(--panel-border); color: var(--text-primary); cursor: pointer; outline: none;" onchange="renderActiveOrdersList()">
+            <option value="ongoing">လုပ်ဆောင်ဆဲ (Ongoing)</option>
+            <option value="paid">ငွေရှင်းပြီး (Paid/Sales)</option>
+          </select>
+          <button class="modal-close-btn" onclick="closeActiveOrdersModal()" style="font-size: 1.5rem; background: none; border: none; color: var(--text-secondary); cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+      </div>
+      
+      <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-right: 2px;" id="activeOrdersListModalContainer">
+        <!-- Rendered dynamically -->
+      </div>
+      
+      <div class="printer-slip-actions" style="margin-top: auto; border-top: 1px solid var(--panel-border); padding-top: 12px;">
+        <button class="btn-modal-action cancel" onclick="closeActiveOrdersModal()" style="width: 100%; flex: none;">ပိတ်မည်</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. SEARCH CATEGORY DIALOG (POS Category List Modal) -->
+  <div class="modal-overlay" id="searchCategoryModalOverlay" style="z-index: 1010;">
+    <div class="modal-card" style="max-width: 580px; width: 95%; max-height: 80vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 12px;">
+        <h3 style="font-weight: 800; font-size: 1.15rem;">Search: POS Category</h3>
+        <button class="modal-close-btn" onclick="closeSearchCategoryModal()">&times;</button>
+      </div>
+      
+      <!-- Search header row matching screenshot -->
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 12px; padding: 0 4px;">
+        <div style="position: relative; flex: 1; max-width: 320px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 12px; color: var(--text-muted);"></i>
+          <input type="text" id="searchCategoryInput" class="form-control" placeholder="Search..." style="padding-left: 35px;" oninput="renderSearchCategoryTable()">
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);" id="searchCategoryCountDisplay">
+          1-12 / 12
+        </div>
+      </div>
+      
+      <!-- Table Area -->
+      <div style="flex: 1; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); background: rgba(0,0,0,0.1); margin-bottom: 15px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;" id="searchCategoryTable">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--panel-border); background: rgba(255,255,255,0.02);">
+              <th style="padding: 10px 12px; width: 45px; text-align: center;"><input type="checkbox" disabled style="width: 16px; height: 16px;"></th>
+              <th style="padding: 10px 12px; font-weight: bold; color: var(--text-secondary);">Product Category</th>
+              <th style="padding: 10px 12px; font-weight: bold; color: var(--text-secondary);">Parent Category</th>
+              <th style="padding: 10px 12px; font-weight: bold; color: var(--text-secondary); text-align: center; width: 70px;">Color</th>
+            </tr>
+          </thead>
+          <tbody id="searchCategoryTableBody">
+            <!-- Populated dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Actions row -->
+      <div class="printer-slip-actions" style="margin-top: auto; border-top: 1px solid var(--panel-border); padding-top: 12px; display: flex; gap: 8px;">
+        <button type="button" class="btn-primary" id="searchCategorySelectBtn" onclick="selectCategoryFromSearchBox()" style="background: var(--accent-brand-blue); border: none; color: white; opacity: 0.6; cursor: not-allowed; transition: var(--transition-smooth); padding: 10px 20px;" disabled>Select</button>
+        <button type="button" class="btn-primary" onclick="openAddCategoryModalFromSearch()" style="background: #714B67; border: none; color: white; cursor: pointer; transition: var(--transition-smooth); padding: 10px 20px;">Create New</button>
+        <button type="button" class="btn-modal-action cancel" onclick="closeSearchCategoryModal()" style="margin: 0; flex: 1; padding: 10px 20px;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. RESTAURANT CONFIG MODAL -->
+  <div class="modal-overlay" id="restaurantConfigModalOverlay">
+    <div class="modal-card" style="max-width: 920px; width: 92%;">
+      <div class="modal-header">
+        <h3 style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-screwdriver-wrench" style="color: var(--accent-brand-blue);"></i> ဆိုင်အထွေထွေပြင်ဆင်မှုများ (General Settings)
+        </h3>
+        <button class="modal-close-btn" onclick="closeRestaurantConfigModal()">&times;</button>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; margin-top: 15px;">
+        <!-- Left Side: General Form -->
+        <form id="settingsGeneralForm" style="display: flex; flex-direction: column; gap: 15px; border-right: 1px solid var(--panel-border); padding-right: 20px;">
+          <div class="form-group">
+            <label for="setRestName">စားသောက်ဆိုင်အမည်</label>
+            <input type="text" id="setRestName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="setCurrency">ငွေကြေးသင်္ကေတ (Currency)</label>
+            <input type="text" id="setCurrency" class="form-control" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label for="setPrinterName">မီးဖိုချောင် ပရင့်တာ (Kitchen Printer)</label>
+            <select id="setPrinterName" class="form-control" style="cursor: pointer;">
+              <option value="POS-80 Kitchen Printer">POS-80 Kitchen Printer (Simulated)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label for="setDrinksPrinterName">အအေးကောင်တာ ပရင့်တာ (Drinks Printer)</label>
+            <select id="setDrinksPrinterName" class="form-control" style="cursor: pointer;">
+              <option value="POS-80 Drinks Printer (Simulated)">POS-80 Drinks Printer (Simulated)</option>
+            </select>
+          </div>
+          <div style="border-top: 1px solid var(--panel-border); padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; font-size: 0.9rem; font-weight: 900; color: var(--text-primary); display: flex; align-items: center; gap: 7px;">
+              <i class="fa-solid fa-receipt" style="color: var(--accent-primary);"></i> Voucher Setup
+            </h4>
+            <div class="form-group">
+              <label for="setVoucherTitle">Voucher Title</label>
+              <input type="text" id="setVoucherTitle" class="form-control" placeholder="Pandora POS">
+            </div>
+            <div class="form-group">
+              <label for="setVoucherAddress">Address</label>
+              <textarea id="setVoucherAddress" class="form-control" rows="2" placeholder="Shop address"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="setVoucherPhone">Phone</label>
+                <input type="text" id="setVoucherPhone" class="form-control" placeholder="+95...">
+              </div>
+              <div class="form-group">
+                <label for="setVoucherFooter">Footer Note</label>
+                <input type="text" id="setVoucherFooter" class="form-control" placeholder="Thank you.">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="setVoucherPaperSize">Paper Size</label>
+              <select id="setVoucherPaperSize" class="form-control">
+                <option value="80mm">80mm thermal paper</option>
+                <option value="58mm">58mm thermal paper</option>
+              </select>
+            </div>
+            <label for="setVoucherShowLogo" style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:800; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="setVoucherShowLogo" style="width:16px; height:16px; cursor:pointer;">
+              Show logo on customer voucher
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px; background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--panel-border);">
+            <input type="checkbox" id="setEnableChatBot" style="cursor: pointer; width: 16px; height: 16px;">
+            <label for="setEnableChatBot" style="color: var(--text-primary); font-size: 0.85rem; font-weight: 600; cursor: pointer; user-select: none; margin-bottom: 0;">
+              AI Chatbot အသုံးပြုမည် (Enable Chatbot)
+            </label>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: auto; padding-top: 10px;">
+            <button type="submit" class="btn-modal-action print" style="margin: 0; flex: 1;">သိမ်းဆည်းမည်</button>
+            <button type="button" class="btn-modal-action cancel" onclick="closeRestaurantConfigModal()" style="margin: 0; flex: 1;">ပိတ်မည်</button>
+          </div>
+        </form>
+
+        <!-- Right Side: Presets and Users Manager -->
+        <div style="display: flex; flex-direction: column; gap: 16px; max-height: 470px; overflow-y: auto; padding-right: 5px;">
+          <h4 style="margin: 0 0 5px 0; font-size: 0.95rem; font-weight: bold; color: var(--text-primary); border-bottom: 1.5px solid var(--panel-border); padding-bottom: 6px;">Presets စီမံခြင်း</h4>
+          
+          <!-- Tax Presets Section -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h5 style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); font-weight: 700;">Tax Presets (အခွန်)</h5>
+              <button type="button" onclick="addNewPreset('tax')" style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-success); color: var(--accent-success); padding: 2px 8px; font-size: 0.75rem; border-radius: var(--border-radius-sm); cursor: pointer; font-weight: bold;">+ Add</button>
+            </div>
+            <div id="settingsTaxPresetsList" style="display: flex; flex-direction: column; gap: 5px;">
+              <!-- Rendered in app.js -->
+            </div>
+          </div>
+          
+          <!-- Discount Presets Section -->
+          <div style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h5 style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); font-weight: 700;">Discount Presets (လျှော့စျေး)</h5>
+              <button type="button" onclick="addNewPreset('discount')" style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-success); color: var(--accent-success); padding: 2px 8px; font-size: 0.75rem; border-radius: var(--border-radius-sm); cursor: pointer; font-weight: bold;">+ Add</button>
+            </div>
+            <div id="settingsDiscountPresetsList" style="display: flex; flex-direction: column; gap: 5px;">
+              <!-- Rendered in app.js -->
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--panel-border); padding-top: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
+              <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">User Management</h4>
+              <button type="button" class="btn-add-item" onclick="openAddUserModal()" style="margin: 0; padding: 7px 12px; font-size: 0.8rem;">+ New User</button>
+            </div>
+            <div class="product-edit-list" id="settingsUserEditContainer">
+              <!-- Rendered dynamically in app.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. PAYMENT CHECKOUT MODAL -->
+  <div class="modal-overlay" id="paymentSelectorModalOverlay" style="z-index: 1100;">
+    <div class="modal-card" style="max-width: 480px; padding: 0; overflow: hidden;">
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--panel-border);">
+        <h3 style="font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin:0;">
+          <i class="fa-solid fa-cash-register" style="color: var(--accent-success);"></i> Payment Checkout
+        </h3>
+        <button class="modal-close-btn" onclick="closePaymentSelectorModal()">&times;</button>
+      </div>
+
+      <div style="padding: 16px 20px; overflow-y: auto; max-height: 80vh;">
+
+        <!-- Billing Summary Card -->
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); padding: 14px 16px; margin-bottom: 16px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:var(--text-secondary); margin-bottom: 6px;">
+            <span>သင့်ငွေ (Subtotal)</span>
+            <span id="checkoutSubtotalText" style="font-weight:700; color:var(--text-primary);">0 MMK</span>
+          </div>
+          <div id="checkoutDiscountRow" style="display:none; justify-content:space-between; font-size:0.85rem; color:var(--accent-danger); margin-bottom: 6px;">
+            <span>လျှော့စျေး (Discount)</span>
+            <span id="checkoutDiscountText" style="font-weight:700;">-0 MMK</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:var(--text-secondary); margin-bottom: 10px;">
+            <span>အခွန် (<span id="checkoutTaxRateText">0</span>%)</span>
+            <span id="checkoutTaxText" style="font-weight:700; color:var(--text-primary);">0 MMK</span>
+          </div>
+          <div style="border-top: 1px dashed var(--panel-border); padding-top: 10px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.9rem; font-weight:800; color:var(--text-primary);">စုစုပေါင်း (Total)</span>
+            <span id="checkoutTotalText" style="font-size:1.5rem; font-weight:900; color:var(--accent-success);">0 MMK</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Selection -->
+        <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-secondary); display: block; margin-bottom: 8px;">ငွေပေးချေမှုပုံစံ ရွေးချယ်ပါ</label>
+        <div id="paymentMethodsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
+          <!-- Rendered dynamically in app.js -->
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:10px;">
+          <button type="button" onclick="closePaymentSelectorModal()" style="flex:1; padding:12px; border:1px solid var(--panel-border); border-radius:var(--border-radius-sm); background:rgba(255,255,255,0.06); color:var(--text-secondary); font-size:0.9rem; font-weight:700; cursor:pointer;">ပယ်ဖျက်မည်</button>
+          <button type="button" id="checkoutConfirmPaymentBtn" onclick="submitCheckoutPayment()" style="flex:2; padding:12px; border:none; border-radius:var(--border-radius-sm); background:var(--accent-success); color:#fff; font-size:1rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; opacity:0.5; pointer-events:none;">
+            <i class="fa-solid fa-check-circle"></i> Payment (ငွေရှင်းမည်)
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. OPEN REGISTER MODAL -->
+  <div class="modal-overlay" id="openRegisterModalOverlay" style="z-index: 1200;">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header">
+        <h3 style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-door-open" style="color: var(--accent-success);"></i> Open Register (ဆိုင်ဖွင့်ငွေထည့်ခြင်း)
+        </h3>
+      </div>
+      <form id="openRegisterForm" style="display: flex; flex-direction: column; gap: 16px; margin-top: 15px;">
+        <div class="form-group">
+          <label for="openingCashAmount">စတင်ရန် အိတ်ထဲရှိ ငွေသားစုစုပေါင်း (Opening Cash)</label>
+          <input type="number" id="openingCashAmount" class="form-control" placeholder="ဥပမာ - 50000" min="0" required value="0">
+        </div>
+        <button type="submit" class="btn-primary" style="padding: 12px; font-weight: 800; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: var(--border-radius-sm); color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(16,185,129,0.3);">
+          ဆိုင်ဖွင့်မည် (Open Register)
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 9. CASH IN/OUT MODAL -->
+  <div class="modal-overlay" id="cashInOutModalOverlay" style="z-index: 1210;">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-primary);"></i> Cash/Banking In-Out
+        </h3>
+        <button class="modal-close-btn" type="button" onclick="closeCashInOutModal()">&times;</button>
+      </div>
+      <form id="cashInOutForm" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+        <div class="form-group">
+          <label for="cashInOutType">လုပ်ဆောင်ချက် အမျိုးအစား</label>
+          <select id="cashInOutType" class="form-control" style="background:var(--input-bg); color:var(--text-primary); border:1px solid var(--input-border); height:38px; width: 100%; padding: 0 10px; border-radius: var(--border-radius-sm); outline: none;">
+            <option value="in">Cash In / Deposit (ငွေသွင်းမည်)</option>
+            <option value="out">Cash Out / Withdraw (ငွေထုတ်မည်)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cashInOutMethod">ငွေပေးချေမှုပုံစံ / အကောင့် (Account)</label>
+          <select id="cashInOutMethod" class="form-control" style="background:var(--input-bg); color:var(--text-primary); border:1px solid var(--input-border); height:38px; width: 100%; padding: 0 10px; border-radius: var(--border-radius-sm); outline: none;">
+            <option value="Cash">Cash (ငွေသား)</option>
+            <option value="KPAY">KPAY</option>
+            <option value="MMQR">MMQR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cashInOutAmount">ပမာဏ (Kyat)</label>
+          <input type="number" id="cashInOutAmount" class="form-control" placeholder="Kyat ပမာဏ ရိုက်ထည့်ပါ..." min="1" required style="height:38px;">
+        </div>
+        <div class="form-group">
+          <label for="cashInOutNote">အကြောင်းပြချက် / မှတ်ချက်</label>
+          <textarea id="cashInOutNote" class="form-control" style="background:var(--input-bg); color:var(--text-primary); border:1px solid var(--input-border); height:60px; padding: 8px 10px; border-radius: var(--border-radius-sm); outline: none;" placeholder="မှတ်ချက် ရေးရန်..." required></textarea>
+        </div>
+        <div class="printer-slip-actions">
+          <button type="submit" class="btn-modal-action print" style="margin: 0; flex: 1;">သိမ်းဆည်းမည်</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeCashInOutModal()" style="margin: 0; flex: 1;">ပိတ်မည်</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 10. CLOSE REGISTER MODAL (DAILY SALE REPORT) -->
+  <div class="modal-overlay" id="closeRegisterModalOverlay" style="z-index: 1220;">
+    <div class="modal-card" style="max-width: 600px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-door-closed" style="color: var(--accent-danger);"></i> Close Register (ဆိုင်ပိတ်ပြီး စာရင်းချုပ်ခြင်း)
+        </h3>
+        <button class="modal-close-btn" onclick="closeCloseRegisterModal()">&times;</button>
+      </div>
+      <div style="margin-top: 15px; max-height: 480px; overflow-y: auto; padding-right: 5px;">
+        
+        <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: bold; color: var(--text-primary);">Daily Sale Report (တစ်နေ့တာအရောင်း အစီရင်ခံစာ)</h4>
+        
+        <!-- Report Print Section -->
+        <div id="dailySaleReportPrintArea" style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); padding: 20px; color: var(--text-primary); margin-bottom: 15px; font-family: monospace;">
+          <!-- Generated Dynamically in app.js -->
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label for="closeRegisterActualCash" style="font-weight: bold; color: var(--text-primary);">အံဆွဲထဲရှိ လက်တွေ့ငွေသား (MMK)</label>
+            <input type="number" id="closeRegisterActualCash" class="form-control" placeholder="ဥပမာ- 85000" required style="height: 38px; font-weight: bold;" oninput="updateCloseRegisterDiff()">
+          </div>
+          <div class="form-group" style="display: flex; flex-direction: column; justify-content: center; padding-left: 10px;">
+            <span style="font-size: 0.8rem; font-weight: bold; color: var(--text-secondary); margin-bottom: 4px;">ပို/လို ကွာဟချက် (Difference)</span>
+            <div id="closeRegisterDiffLabel" style="font-size: 1.1rem; font-weight: 800; color: var(--text-muted); font-family: monospace;">0 MMK</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="closeRegisterNote">မှတ်ချက် / Closing Note</label>
+          <textarea id="closeRegisterNote" class="form-control" style="background:var(--input-bg); color:var(--text-primary); border:1px solid var(--input-border); height:60px;" placeholder="ဆိုင်ပိတ်မှတ်စု ရေးရန် (ဥပမာ- ဘဏ်ထဲငွေလွှဲပြီး)..."></textarea>
+        </div>
+
+      </div>
+      
+      <div class="printer-slip-actions" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px;">
+        <button type="button" class="btn-modal-action print" onclick="finalizeRegisterClose()" style="background:#ef5350; flex: 1.2; margin: 0; min-width: 140px;">Close Register</button>
+        <button type="button" class="btn-modal-action print" onclick="triggerReportDownload()" style="background:#3b82f6; flex: 1; margin: 0; min-width: 120px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+          <i class="fa-solid fa-download"></i> Daily Sale
+        </button>
+        <button type="button" class="btn-modal-action print" onclick="openCashInOutFromClose()" style="background:#f59e0b; flex: 1; margin: 0; min-width: 120px;">Cash In/Out</button>
+        <button type="button" class="btn-modal-action cancel" onclick="closeCloseRegisterModal()" style="flex: 0.8; margin: 0; min-width: 90px;">Discard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. LOGIN SYSTEM OVERLAY -->
+  <div class="modal-overlay active" id="loginScreenOverlay" style="background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end)); z-index: 10000; opacity: 1; pointer-events: auto; display: flex; align-items: center; justify-content: center;">
+    <div class="modal-card" style="max-width: 420px; width: 95%; padding: 25px 20px; border-radius: 24px; text-align: center; border: 1.5px solid rgba(255, 255, 255, 0.1); background: var(--panel-bg); box-shadow: 0 20px 50px rgba(0,0,0,0.3);">
+      
+      <!-- Logo Header -->
+      <div style="margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <img src="logo.png" alt="Pandora Logo" style="width: 70px; height: 70px; border-radius: 16px; border: 2px solid var(--accent-primary); box-shadow: 0 4px 20px var(--accent-brand-blue-glow);">
+        <h2 style="font-weight: 800; font-size: 1.45rem; letter-spacing: 0.5px; margin: 0; color: var(--text-primary);">PANDORA</h2>
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--accent-primary); letter-spacing: 2px; margin-top: -3px;">FOOD HOUSE</span>
+      </div>
+      
+      <!-- User Selection Dropdown -->
+      <div style="margin-top: 10px; text-align: left; margin-bottom: 15px;">
+        <label for="loginUserSelect" style="font-size: 0.8rem; font-weight: bold; color: var(--text-secondary); margin-bottom: 6px; display: block; text-align: center; text-transform: uppercase; letter-spacing: 1px;">အသုံးပြုသူ ရွေးချယ်ရန် (Select User)</label>
+        <select id="loginUserSelect" class="form-control" style="width: 100%; height: 42px; padding: 0 10px; border-radius: var(--border-radius-md); background: var(--input-bg); border: 1px solid var(--panel-border); color: var(--text-primary); cursor: pointer; outline: none; font-size: 0.95rem; font-weight: 700; text-align: center;" onchange="selectLoginUser(this.value, this.options[this.selectedIndex].text)">
+          <!-- Options dynamically rendered by renderLoginUsers() -->
+        </select>
+      </div>
+      
+      <!-- Hidden Username and Password inputs -->
+      <input type="password" id="loginPassword" readonly style="display: none;">
+      <input type="hidden" id="loginUsername">
+      
+      <!-- Error Message -->
+      <div id="loginErrorMessage" style="color: var(--accent-danger); font-size: 0.82rem; font-weight: bold; margin-bottom: 15px; text-align: center; display: none; padding: 0 10px;">
+        <i class="fa-solid fa-triangle-exclamation"></i> စကားဝှက် မှားယွင်းနေပါသည်။
+      </div>
+      
+      <div id="loginPasswordStep" style="display: none;">
+        <!-- Password PIN Dots Display (4 Dots) -->
+        <div style="display: flex; justify-content: center; align-items: center; gap: 18px; margin: 10px 0 20px 0;">
+          <div class="pin-dot" id="pin-dot-1"></div>
+          <div class="pin-dot" id="pin-dot-2"></div>
+          <div class="pin-dot" id="pin-dot-3"></div>
+          <div class="pin-dot" id="pin-dot-4"></div>
+        </div>
+        
+        <!-- Keypad Grid -->
+        <div class="pin-keypad" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 0 auto;">
+          <button type="button" class="keypad-btn" onclick="pressPinKey('1')">1</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('2')">2</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('3')">3</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('4')">4</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('5')">5</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('6')">6</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('7')">7</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('8')">8</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('9')">9</button>
+          <button type="button" class="keypad-btn clear" onclick="pressPinKey('C')" style="color: var(--accent-danger);">C</button>
+          <button type="button" class="keypad-btn" onclick="pressPinKey('0')">0</button>
+          <button type="button" class="keypad-btn delete" onclick="pressPinKey('back')"><i class="fa-solid fa-backspace"></i></button>
+        </div>
+        
+        <!-- Submit Action Button -->
+        <button type="button" id="loginSubmitBtn" onclick="submitPinLogin()" style="margin: 20px auto 0 auto; width: 100%; max-width: 300px; padding: 12px; font-size: 1rem; border-radius: var(--border-radius-md); border: none; background: var(--accent-success); color: white; font-weight: 800; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 10px var(--accent-success-glow);">
+          <i class="fa-solid fa-right-to-bracket"></i> စနစ်ထဲသို့ဝင်မည် (Login)
+        </button>
+      </div>
+
+      <!-- IP Address info bar -->
+      <div id="localIpInfoBar" style="margin-top: 15px; padding: 8px; border-radius: 8px; background: rgba(229, 183, 46, 0.08); border: 1px dashed var(--accent-primary); font-size: 0.76rem; color: var(--accent-primary); font-weight: bold; display: none; text-align: center; justify-content: center; gap: 4px;">
+        <i class="fa-solid fa-wifi"></i> တက်ဘလက်များမှ ချိတ်ဆက်ရန် URL: <span id="localIpAddressDisplay" style="text-decoration: underline; font-weight: 800;">http://localhost:3000</span>
+      </div>
+
+      <div style="margin-top: 15px; font-size: 0.72rem; color: var(--text-muted);">
+        ခွင့်ပြုချက်မရှိဘဲ ဝင်ရောက်ခြင်းကို တားမြစ်ထားသည်။<br>© Pandora POS System
+      </div>
+    </div>
+  </div>
+
+  <!-- 11. QR MENU MODAL -->
+  <div class="modal-overlay" id="qrSimulatorModalOverlay" style="z-index: 1250;">
+    <div class="modal-card" style="max-width: 400px; padding: 24px; text-align: center;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">
+        <h3 id="qrModalTitle" style="font-weight: 800; font-size: 1.1rem; margin: 0; color: var(--text-primary);">QR Menu & Ordering</h3>
+        <button class="modal-close-btn" type="button" onclick="closeQrSimulatorModal()">&times;</button>
+      </div>
+      
+
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <!-- QR Code display -->
+        <div id="simulatedQrCodeContainer" style="display: flex; align-items: center; justify-content: center; min-height: 180px; width: 100%;">
+          <!-- Generated Dynamic QR Code image displayed here by JS -->
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 0;" id="qrMenuUrlText">
+          Customer ဖုန်းဖြင့် QR Scan ဖတ်ပြီး Menu ကြည့်ရှုနိုင်မည်ဖြစ်သည်။
+        </p>
+        <div style="display: flex; gap: 10px; width: 100%;">
+          <button type="button" id="openSelfOrderBtn" style="flex: 1; padding: 12px; font-weight: 800; font-size: 0.9rem; background: var(--accent-brand-blue); border: none; border-radius: var(--border-radius-sm); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i class="fa-solid fa-book-open"></i> Menu
+          </button>
+          <button type="button" onclick="window.print()" style="padding: 12px 18px; font-weight: 800; font-size: 0.9rem; background: var(--panel-border); border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Print QR Code">
+            <i class="fa-solid fa-print"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12. EXPENSE FORM MODAL -->
+  <div class="modal-overlay" id="expenseModalOverlay" style="z-index: 1250;">
+    <div class="modal-card" style="max-width: 480px; padding: 20px; border-radius: var(--border-radius-lg); background: var(--modal-bg);">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">
+        <h3 style="font-weight: 800; font-size: 1.1rem; margin: 0; color: var(--text-primary);">ဈေးဝယ်စရိတ်အသစ် ထည့်ရန်</h3>
+        <button class="modal-close-btn" type="button" onclick="closeExpenseForm()">&times;</button>
+      </div>
+      <form id="marketPurchaseForm">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Row 1: Item Name -->
+          <div class="form-group">
+            <label for="expItemName" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ပစ္စည်းအမည်</label>
+            <input type="text" id="expItemName" class="form-control" placeholder="ဥပမာ- ကြက်ဥ" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+          </div>
+          
+          <!-- Row 2: Cost & Date -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="expCost" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ကုန်ကျစရိတ် (ကျပ်)</label>
+              <input type="number" id="expCost" class="form-control" placeholder="3000" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            </div>
+            <div class="form-group">
+              <label for="expDate" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ရက်စွဲ</label>
+              <input type="date" id="expDate" class="form-control" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            </div>
+          </div>
+          
+          <!-- Row 3: Qty & Unit -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="expQty" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">အရေအတွက်</label>
+              <input type="number" id="expQty" class="form-control" step="any" placeholder="5" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            </div>
+            <div class="form-group">
+              <label for="expUnit" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ယူနစ်</label>
+              <input type="text" id="expUnit" class="form-control" placeholder="ကတ်, kg, ထုပ်" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            </div>
+          </div>
+          
+          <!-- Row 4: Notes -->
+          <div class="form-group">
+            <label for="expNotes" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">မှတ်ချက်</label>
+            <input type="text" id="expNotes" class="form-control" placeholder="မနက်ဈေးမှ ဝယ်လာသည်..." style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+          </div>
+
+          <!-- Toggle to connect to Product Stock -->
+          <div class="checkbox-group" id="inventoryLinkToggleWrapper" style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+            <input type="checkbox" id="expLinkInventory" style="cursor: pointer; width: 16px; height: 16px;">
+            <label for="expLinkInventory" style="color: var(--text-primary); font-size: 0.85rem; font-weight: 600; cursor: pointer; user-select: none;">
+              Track Inventory
+            </label>
+          </div>
+
+          <!-- Conditional Dropdown showing trackable stock items -->
+          <div id="expInventoryProductWrapper" style="display: none; background: rgba(255,255,255,0.03); border: 1px dashed var(--panel-border); padding: 12px; border-radius: var(--border-radius-sm); margin-top: 5px;">
+            <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 10px; align-items: flex-end;">
+              <div class="form-group">
+                <label for="expProductSelect" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">မည်သည့် စတော့ပစ္စည်းတွင် ပေါင်းထည့်မည်နည်း</label>
+                <select id="expProductSelect" class="form-control" style="width: 100%; height: 38px; padding: 0 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none; cursor: pointer;">
+                  <!-- Rendered dynamically -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="expAddQty" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ပေါင်းထည့်မည့်အရေအတွက်</label>
+                <input type="number" id="expAddQty" class="form-control" placeholder="10" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Buttons -->
+          <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+            <!-- Save Button -->
+            <button type="submit" class="submit-btn" id="saveExpenseBtn" style="flex: 1; min-width: 80px; padding: 11px; font-weight: 800; font-size: 0.9rem; background: var(--accent-success); border: none; color: #fff; border-radius: var(--border-radius-sm); cursor: pointer; transition: var(--transition-smooth);">Save</button>
+            <!-- Save & New Button -->
+            <button type="button" onclick="saveAndNewExpense(event)" id="saveAndNewExpenseBtn" style="flex: 1.2; min-width: 110px; padding: 11px; font-weight: 800; font-size: 0.9rem; background: var(--accent-brand-blue); border: none; color: #fff; border-radius: var(--border-radius-sm); cursor: pointer; transition: var(--transition-smooth);">Save & New</button>
+            <!-- Discard Button -->
+            <button type="button" onclick="closeExpenseForm()" style="flex: 1; min-width: 80px; padding: 11px; border: 1px solid var(--panel-border); border-radius: var(--border-radius-sm); background: rgba(255,255,255,0.05); color: var(--text-secondary); font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: var(--transition-smooth);">Discard</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard Detail Modal -->
+  <!-- 12B. INVENTORY ITEM FORM MODAL -->
+  <div class="modal-overlay" id="inventoryItemModalOverlay" style="z-index: 1250;">
+    <div class="modal-card" style="max-width: 400px; padding: 20px; border-radius: var(--border-radius-lg); background: var(--modal-bg);">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 15px;">
+        <h3 id="inventoryModalTitle" style="font-weight: 800; font-size: 1.1rem; margin: 0; color: var(--text-primary);">စတော့ပစ္စည်းအသစ် ထည့်ရန်</h3>
+        <button class="modal-close-btn" type="button" onclick="closeInventoryModal()">&times;</button>
+      </div>
+      <form id="inventoryItemForm" onsubmit="saveInventoryItem(event)">
+        <input type="hidden" id="inventoryItemId">
+        <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+          <div class="form-group">
+            <label style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ပစ္စည်းအမည် (Item Name) *</label>
+            <input type="text" id="inventoryItemName" class="form-control" placeholder="ဥပမာ- Coca Cola, Water, Eggs" style="width:100%; box-sizing:border-box;" required>
+          </div>
+          
+          <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+              <label style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">လက်ကျန်စတော့ (Stock) *</label>
+              <input type="number" id="inventoryItemStock" class="form-control" placeholder="0" style="width:100%; box-sizing:border-box;" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">ယူနစ် (Unit) *</label>
+              <input type="text" id="inventoryItemUnit" class="form-control" placeholder="ဥပမာ- ဘူး, လုံး, ထုပ်" style="width:100%; box-sizing:border-box;" required>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-secondary);">အနိမ့်ဆုံးသတိပေးချက်ပမာဏ (Min Stock Alert)</label>
+            <input type="number" id="inventoryItemMinStock" class="form-control" placeholder="10" style="width:100%; box-sizing:border-box;">
+          </div>
+          
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button type="button" class="btn-secondary" onclick="closeInventoryModal()" style="flex:1; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold;">Cancel</button>
+            <button type="submit" class="btn-primary" style="flex:1; padding: 10px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-brand-blue); color: white; cursor: pointer; font-weight: bold;">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="dashboardDetailModal" onclick="closeDashboardDetailModal(event)" style="z-index: 1300;">
+    <div class="modal-card" style="max-width: 700px; width: 95%; max-height: 85vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 15px;">
+        <h3 id="dashboardDetailTitle" style="font-weight: 800; font-size: 1.25rem; margin: 0; color: var(--text-primary);">Dashboard Detail</h3>
+        <button class="modal-close-btn" type="button" onclick="closeDashboardDetailModal(event)">&times;</button>
+      </div>
+      <div class="modal-body" id="dashboardDetailBody" style="overflow-y: auto; flex-grow: 1; padding: 0 5px;">
+        <!-- Content will be injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOMER SELF-ORDER PORTAL SCREEN -->
+  <div id="selfOrderPortalContainer" style="display: none; position: fixed; inset: 0; background: var(--body-bg); z-index: 9999; overflow-y: auto; font-family: var(--font-family);">
+    <!-- Rendered dynamically in JS -->
+  </div>
+
+  <!-- SheetJS Library for Excel Import -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Include Mock Data and Application Javascript -->
+  <script src="mockData.js"></script>
+  <script src="app.js"></script>
+  <!-- Floating AI Assistant Chat Bot -->
+  <div id="aiChatBotWidget" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; font-family: 'Outfit', sans-serif;">
+    <!-- Chat Toggle Button -->
+    <button id="aiChatBotToggle" onclick="toggleAiChatBot()" style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-brand-blue), #4f46e5); color: white; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: transform 0.3s ease; position: relative;">
+      <i class="fa-solid fa-robot"></i>
+      <!-- Pulse ring animation -->
+      <span style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: var(--accent-brand-blue); opacity: 0.4; z-index: -1; animation: pulse-ring 2s infinite;"></span>
+    </button>
+
+    <!-- Chat Window (initially hidden) -->
+    <div id="aiChatBotWindow" class="ai-chatbot-window">
+      <!-- Header -->
+      <div style="background: linear-gradient(135deg, var(--accent-brand-blue), #4f46e5); padding: 14px 16px; color: white; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-robot" style="font-size: 1.2rem;"></i>
+          <div>
+            <div style="font-weight: 800; font-size: 0.95rem; line-height: 1;">Pandora POS Bot</div>
+            <span style="font-size: 0.7rem; opacity: 0.8; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Online Assistant
+            </span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <!-- Clear Chat Button -->
+          <button onclick="clearBotChatHistory()" style="background: none; border: none; color: white; cursor: pointer; font-size: 0.9rem; opacity: 0.8; display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;" title="Clear Chat History" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+          <button onclick="toggleAiChatBot()" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; opacity: 0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">&times;</button>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div id="aiChatBotMessages" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.02);">
+        <!-- Welcome Message -->
+        <div style="align-self: flex-start; max-width: 85%; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--text-primary); padding: 10px 12px; border-radius: 12px 12px 12px 2px; font-size: 0.85rem; line-height: 1.4;">
+          မင်္ဂလာပါခင်ဗျာ! ကျွန်တော်က Pandora POS AI Assistant ဖြစ်ပါတယ်။ စနစ်တွင်း စာရင်းဇယားများနှင့် ပတ်သက်ပြီး မေးမြန်းနိုင်ပါတယ်။ 👇
+        </div>
+      </div>
+
+      <!-- Suggestions Quick Actions -->
+      <div style="padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--panel-border); background: rgba(0,0,0,0.01);">
+        <button onclick="sendBotQuickAction('📊 ယနေ့အရောင်း')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; transition: var(--transition-smooth);" onmouseover="this.style.borderColor='var(--accent-brand-blue)'" onmouseout="this.style.borderColor='var(--panel-border)'">📊 ယနေ့အရောင်း</button>
+        <button onclick="sendBotQuickAction('💸 ယနေ့ကုန်ကျစရိတ်')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; transition: var(--transition-smooth);" onmouseover="this.style.borderColor='var(--accent-brand-blue)'" onmouseout="this.style.borderColor='var(--panel-border)'">💸 ယနေ့ကုန်ကျစရိတ်</button>
+        <button onclick="sendBotQuickAction('📈 ယနေ့အမြတ်')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; transition: var(--transition-smooth);" onmouseover="this.style.borderColor='var(--accent-brand-blue)'" onmouseout="this.style.borderColor='var(--panel-border)'">📈 ယနေ့အမြတ်</button>
+        <button onclick="sendBotQuickAction('⚠️ စတော့နည်းနေသည်များ')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-weight: bold; transition: var(--transition-smooth);" onmouseover="this.style.borderColor='var(--accent-brand-blue)'" onmouseout="this.style.borderColor='var(--panel-border)'">⚠️ စတော့နည်းနေသည်များ</button>
+      </div>
+
+      <!-- Input Form -->
+      <form id="aiChatBotForm" onsubmit="handleBotSubmit(event)" style="display: flex; border-top: 1px solid var(--panel-border); padding: 8px 12px; gap: 8px; background: var(--panel-bg);">
+        <input type="text" id="aiChatBotInput" placeholder="ဥပမာ- ဒီနေ့ဘယ်လောက်ဖိုးရောင်းရလဲ" style="flex: 1; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); padding: 8px 12px; border-radius: var(--border-radius-sm); font-size: 0.85rem; outline: none;" required autocomplete="off">
+        <button type="submit" style="background: var(--accent-brand-blue); border: none; color: white; padding: 0 14px; border-radius: var(--border-radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition-smooth);" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Cloud Credentials Modal -->
+  <div id="cloudCredentialsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-secondary); border-radius:var(--border-radius); padding:28px; width:360px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid var(--panel-border);">
+      <h3 style="margin:0 0 6px 0; font-size:1.1rem; font-weight:800;"><i class="fa-solid fa-cloud"></i> Cloud ဆာဗာ ဝင်ရောက်မည်</h3>
+      <p id="cloudCredModalDesc" style="font-size:0.8rem; color:var(--text-muted); margin:0 0 16px 0;">Cloud Server သို့ ချိတ်ဆက်ရန် Login ဝင်ပါ</p>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:4px;">Cloud Server URL</label>
+        <input type="text" id="cloudCredUrl" placeholder="https://pos.yourdomain.com/api/index.php"
+          style="width:100%; padding:8px 10px; border-radius:var(--border-radius-sm); border:1px solid var(--panel-border); background:var(--bg-tertiary); color:var(--text-primary); font-size:0.82rem; box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:4px;">Username</label>
+        <input type="text" id="cloudCredUser" placeholder="admin"
+          style="width:100%; padding:8px 10px; border-radius:var(--border-radius-sm); border:1px solid var(--panel-border); background:var(--bg-tertiary); color:var(--text-primary); font-size:0.9rem; box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:4px;">Password / PIN</label>
+        <input type="password" id="cloudCredPass" placeholder="••••"
+          style="width:100%; padding:8px 10px; border-radius:var(--border-radius-sm); border:1px solid var(--panel-border); background:var(--bg-tertiary); color:var(--text-primary); font-size:1rem; box-sizing:border-box; letter-spacing:4px;">
+      </div>
+      <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="cloudCredRemember" checked style="width:16px; height:16px; cursor:pointer;">
+        <label for="cloudCredRemember" style="font-size:0.8rem; cursor:pointer; color:var(--text-secondary);">ဤ PC တွင် ထပ်မမေးဘဲ မှတ်ထားမည်</label>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button id="cloudCredSubmitBtn" onclick="submitCloudCredentials()" style="flex:1; padding:11px; border:none; border-radius:var(--border-radius-sm); background:var(--accent-brand-blue); color:white; font-weight:800; font-size:0.9rem; cursor:pointer;">
+          <i class="fa-solid fa-circle-check"></i> ဆက်လက်မည်
+        </button>
+        <button onclick="closeCloudCredentialsModal()" style="padding:11px 16px; border:1px solid var(--panel-border); border-radius:var(--border-radius-sm); background:transparent; color:var(--text-muted); font-weight:700; cursor:pointer;">ပိတ်မည်</button>
+      </div>
+      <p id="cloudCredError" style="display:none; color:var(--accent-error); font-size:0.8rem; margin:10px 0 0 0; text-align:center;"></p>
+    </div>
+  </div>
+
+</body>
+</html>
+
