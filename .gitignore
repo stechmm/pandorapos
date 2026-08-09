@@ -13,6 +13,7 @@ dist/
 build/
 out/
 *.exe
+!Pandora POS.exe
 
 # OS/editor files
 .DS_Store

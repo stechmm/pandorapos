@@ -21,7 +21,7 @@ internal static class PandoraPosLauncher
 
         if (!File.Exists(serverPath))
         {
-            MessageBox.Show("server.js မတွေ့ပါ။ EXE ကို pandora-pos-ui folder ထဲမှာထားပြီး run ပါ။", "Pandora POS Demo");
+            MessageBox.Show("server.js was not found. Keep this launcher inside the Pandora POS app folder.", "Pandora POS");
             return;
         }
 
@@ -47,12 +47,12 @@ internal static class PandoraPosLauncher
         }
 
         MessageBox.Show(
-            "Pandora POS demo စတင်ပြီးပါပြီ။\n\n" +
-            "PC: " + pcUrl + "\n" +
-            "Phone: " + phoneUrl + "\n\n" +
-            "Phone ကို PC နဲ့ Wi-Fi တူတူချိတ်ပြီး Phone URL ကိုဖွင့်ပါ။\n" +
-            "Phone URL ကို clipboard ထဲ copy လုပ်ထားပါတယ်။",
-            "Pandora POS Demo"
+            "Pandora POS has started.\n\n" +
+            "Cashier PC: " + pcUrl + "\n" +
+            "Phone/Tablet: " + phoneUrl + "\n\n" +
+            "Connect the phone/tablet to the same Wi-Fi and open the Phone/Tablet URL.\n" +
+            "The Phone/Tablet URL has been copied to the clipboard.",
+            "Pandora POS"
         );
     }
 
@@ -61,7 +61,7 @@ internal static class PandoraPosLauncher
         string nodePath = FindNode();
         if (string.IsNullOrWhiteSpace(nodePath))
         {
-            MessageBox.Show("Node.js မတွေ့ပါ။ Demo server run ဖို့ Node.js လိုပါတယ်။", "Pandora POS Demo");
+            MessageBox.Show("Node.js was not found. Install Node.js 20 or newer to run Pandora POS.", "Pandora POS");
             Environment.Exit(1);
         }
 
@@ -122,7 +122,7 @@ internal static class PandoraPosLauncher
     {
         try
         {
-            var request = WebRequest.Create(url + "/api/state");
+            var request = WebRequest.Create(url + "/api/index.php?action=status");
             request.Timeout = 700;
             using (var response = request.GetResponse())
             {
