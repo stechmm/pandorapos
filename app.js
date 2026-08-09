@@ -54,7 +54,8 @@ const DEFAULT_VOUCHER_SETTINGS = {
   voucherPhone: '',
   voucherFooter: 'Thank you for your purchase.',
   voucherShowLogo: true,
-  voucherPaperSize: '80mm'
+  voucherPaperSize: '80mm',
+  brandLogoDataUrl: ''
 };
 const OWNER_DEFAULT_USER = {
   id: 'u4',
@@ -89,6 +90,15 @@ function ensureVoucherSettings() {
         : value;
     }
   });
+}
+
+function getBrandLogoSrc() {
+  return state.settings?.brandLogoDataUrl || 'logo.png';
+}
+
+function formatBrandNameHtml(name) {
+  const safeName = escapeHtml(String(name || 'Pandora POS').trim() || 'Pandora POS');
+  return `${safeName}<br><span style="font-size: 0.72rem; font-weight: 600; opacity: 0.8; color: var(--accent-primary); letter-spacing: 0.5px;">POS</span>`;
 }
 
 function ensureOwnerUser() {
@@ -783,6 +793,14 @@ function applySettings() {
   // Apply restaurant name
   const restNameDisplays = document.querySelectorAll('#restaurantNameDisplay');
   restNameDisplays.forEach(el => el.textContent = state.settings.restaurantName);
+  const brandLogoSrc = getBrandLogoSrc();
+  document.querySelectorAll('.app-brand-logo').forEach(img => {
+    img.src = brandLogoSrc;
+    img.alt = `${state.settings.restaurantName || 'Shop'} Logo`;
+  });
+  const brandName = document.getElementById('appBrandName');
+  if (brandName) brandName.innerHTML = formatBrandNameHtml(state.settings.restaurantName);
+  document.title = `${state.settings.restaurantName || 'Pandora POS'} - POS System`;
   
   // Settings Form values
   const setRestName = document.getElementById('setRestName');
@@ -791,6 +809,10 @@ function applySettings() {
   const setPrinterName = document.getElementById('setPrinterName');
   
   if (setRestName) setRestName.value = state.settings.restaurantName;
+  const setBrandLogoPreview = document.getElementById('setBrandLogoPreview');
+  const setBrandLogoDataUrl = document.getElementById('setBrandLogoDataUrl');
+  if (setBrandLogoPreview) setBrandLogoPreview.src = brandLogoSrc;
+  if (setBrandLogoDataUrl) setBrandLogoDataUrl.value = state.settings.brandLogoDataUrl || '';
   if (setTaxRate) setTaxRate.value = state.settings.taxRate;
   populatePrinterDropdowns();
   if (setCurrency) setCurrency.value = state.settings.currency;
@@ -3042,7 +3064,7 @@ function showPrinterSlipModal(order, slipType) {
     const voucherPhone = state.settings.voucherPhone || '';
     const voucherFooter = state.settings.voucherFooter || 'Thank you.';
     const voucherLogoHtml = state.settings.voucherShowLogo !== false
-      ? `<img src="logo.png" alt="Logo" style="width:42px; height:42px; object-fit:contain; margin-bottom:4px;">`
+      ? `<img src="${escapeHtml(getBrandLogoSrc())}" alt="Logo" style="width:42px; height:42px; object-fit:contain; margin-bottom:4px;">`
       : '';
     slipHtml = `
       <div class="receipt-header">
@@ -4085,6 +4107,7 @@ function handleSettingsSubmit() {
   const drinksPrinter = document.getElementById('setDrinksPrinterName').value;
   
   state.settings.restaurantName = name;
+  state.settings.brandLogoDataUrl = document.getElementById('setBrandLogoDataUrl')?.value || '';
   state.settings.taxRate = tax;
   state.settings.currency = curr;
   state.settings.printerName = printer;
@@ -4109,6 +4132,43 @@ function handleSettingsSubmit() {
   switchTab('dashboard-pane');
   
   alert("Action completed.");
+}
+
+function handleBrandLogoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    alert('Please choose a PNG, JPG, or WebP logo image.');
+    event.target.value = '';
+    return;
+  }
+  if (file.size > 800 * 1024) {
+    alert('Logo image is too large. Please choose an image under 800 KB.');
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || '');
+    const hiddenInput = document.getElementById('setBrandLogoDataUrl');
+    const preview = document.getElementById('setBrandLogoPreview');
+    if (hiddenInput) hiddenInput.value = dataUrl;
+    if (preview) preview.src = dataUrl;
+  };
+  reader.onerror = () => {
+    alert('Could not read the logo image. Please try another file.');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeBrandLogo() {
+  const fileInput = document.getElementById('setBrandLogoFile');
+  const hiddenInput = document.getElementById('setBrandLogoDataUrl');
+  const preview = document.getElementById('setBrandLogoPreview');
+  if (fileInput) fileInput.value = '';
+  if (hiddenInput) hiddenInput.value = '';
+  if (preview) preview.src = 'logo.png';
 }
 
 // Menu Items Edit Modals

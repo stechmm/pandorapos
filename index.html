@@ -20,8 +20,8 @@
     <!-- 1. SIDEBAR NAVIGATION -->
     <aside class="sidebar">
       <div class="brand-section" style="padding: 10px 5px 15px 5px; align-items: center;">
-        <img src="logo.png" alt="Pandora Logo" style="width: 42px; height: 42px; border-radius: 8px; object-fit: contain; border: 1.5px solid var(--accent-primary);">
-        <div class="brand-name" style="margin-left: 8px; line-height: 1.1;">
+        <img src="logo.png" alt="Shop Logo" class="app-brand-logo" id="appBrandLogo" style="width: 42px; height: 42px; border-radius: 8px; object-fit: contain; border: 1.5px solid var(--accent-primary);">
+        <div class="brand-name" id="appBrandName" style="margin-left: 8px; line-height: 1.1;">
           PANDORA<br><span style="font-size: 0.72rem; font-weight: 600; opacity: 0.8; color: var(--accent-primary); letter-spacing: 0.5px;">POS</span>
         </div>
       </div>
@@ -1456,6 +1456,25 @@
           <div class="form-group">
             <label for="setRestName">စားသောက်ဆိုင်အမည်</label>
             <input type="text" id="setRestName" class="form-control" required>
+          </div>
+          <div class="brand-settings-card">
+            <div class="brand-logo-preview-box">
+              <img src="logo.png" alt="Shop Logo Preview" id="setBrandLogoPreview" class="brand-logo-preview">
+            </div>
+            <div class="brand-settings-actions">
+              <label for="setBrandLogoFile">Shop Logo</label>
+              <div class="brand-logo-buttons">
+                <button type="button" class="btn-mini-primary" onclick="document.getElementById('setBrandLogoFile')?.click()">
+                  <i class="fa-solid fa-image"></i> Upload
+                </button>
+                <button type="button" class="btn-mini-muted" onclick="removeBrandLogo()">
+                  Remove
+                </button>
+              </div>
+              <small>PNG/JPG/WebP, max 800 KB. This logo appears in the sidebar and vouchers.</small>
+              <input type="file" id="setBrandLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleBrandLogoUpload(event)">
+              <input type="hidden" id="setBrandLogoDataUrl">
+            </div>
           </div>
           <div class="form-group">
             <label for="setCurrency">ငွေကြေးသင်္ကေတ (Currency)</label>

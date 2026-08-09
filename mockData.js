@@ -299,7 +299,8 @@ const initialSettings = {
   voucherPhone: "",
   voucherFooter: "Thank you for your purchase.",
   voucherShowLogo: true,
-  voucherPaperSize: "80mm"
+  voucherPaperSize: "80mm",
+  brandLogoDataUrl: ""
 };
 
 const initialUsers = [

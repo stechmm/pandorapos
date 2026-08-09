@@ -6,6 +6,8 @@ npm-debug.log*
 cloud-state.json
 cloud-state.json.bak
 demo-state.json
+audit-log.jsonl
+backups/
 *.bak
 
 # Local build artifacts
