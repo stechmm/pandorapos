@@ -8,7 +8,12 @@ const rootDir = __dirname;
 const dataDir = process.env.POS_DATA_DIR || rootDir;
 const stateFile = path.join(dataDir, process.env.POS_STATE_FILE || "cloud-state.json");
 const backupStateFile = `${stateFile}.bak`;
+const backupDir = path.join(dataDir, "backups");
+const auditLogFile = path.join(dataDir, "audit-log.jsonl");
 const port = Number(process.env.PORT || 4173);
+const maxBackupFiles = Number(process.env.POS_MAX_BACKUPS || 30);
+const maxLoginAttempts = Number(process.env.POS_MAX_LOGIN_ATTEMPTS || 8);
+const loginLockMs = Number(process.env.POS_LOGIN_LOCK_MS || 5 * 60 * 1000);
 
 const defaultUsers = [
   { id: "u1", username: "admin", name: "Admin 1", role: "admin", password: "1991" },
@@ -25,6 +30,7 @@ let store = {
 
 const sessions = new Map();
 const eventClients = new Set();
+const failedLogins = new Map();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -68,12 +74,73 @@ function loadStore() {
 
 function saveStore() {
   fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(backupDir, { recursive: true });
   const tempFile = `${stateFile}.${process.pid}.tmp`;
   if (fs.existsSync(stateFile)) {
     fs.copyFileSync(stateFile, backupStateFile);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    fs.copyFileSync(stateFile, path.join(backupDir, `cloud-state-${stamp}.json`));
   }
   fs.writeFileSync(tempFile, JSON.stringify(store, null, 2));
   fs.renameSync(tempFile, stateFile);
+  pruneBackups();
+}
+
+function pruneBackups() {
+  try {
+    const backups = fs.readdirSync(backupDir)
+      .filter((name) => /^cloud-state-.+\.json$/.test(name))
+      .map((name) => {
+        const fullPath = path.join(backupDir, name);
+        return { name, fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    backups.slice(maxBackupFiles).forEach((item) => fs.unlinkSync(item.fullPath));
+  } catch (error) {
+    console.warn("Could not prune POS backups:", error.message);
+  }
+}
+
+function appendAudit(event, request, session, details = {}) {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const entry = {
+      at: new Date().toISOString(),
+      event,
+      user: session ? publicUser(session.user) : null,
+      ip: getClientIp(request),
+      userAgent: request.headers["user-agent"] || "",
+      version: store.version,
+      details
+    };
+    fs.appendFileSync(auditLogFile, `${JSON.stringify(entry)}\n`);
+  } catch (error) {
+    console.warn("Could not write POS audit log:", error.message);
+  }
+}
+
+function getBackupInfo() {
+  try {
+    if (!fs.existsSync(backupDir)) return { count: 0, latest: null };
+    const backups = fs.readdirSync(backupDir)
+      .filter((name) => /^cloud-state-.+\.json$/.test(name))
+      .map((name) => {
+        const fullPath = path.join(backupDir, name);
+        return { name, mtimeMs: fs.statSync(fullPath).mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return {
+      count: backups.length,
+      latest: backups[0] ? backups[0].name : null
+    };
+  } catch {
+    return { count: 0, latest: null };
+  }
+}
+
+function getClientIp(request) {
+  const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || request.socket.remoteAddress || "";
 }
 
 function parseCookies(header = "") {
@@ -154,7 +221,13 @@ function readBody(request) {
 async function readJsonBody(request) {
   const raw = await readBody(request);
   if (!raw.trim()) return {};
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const error = new Error("Invalid JSON request body.");
+    error.statusCode = 400;
+    throw error;
+  }
 }
 
 function requireCsrf(request, session) {
@@ -170,6 +243,43 @@ function publicUser(user) {
     name: user.name,
     role: user.role
   };
+}
+
+function validateSharedState(candidate) {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw Object.assign(new Error("Invalid POS state payload."), { statusCode: 400 });
+  }
+  const requiredArrays = ["categories", "products", "tables", "orders", "salesHistory", "marketExpenses", "users"];
+  const missing = requiredArrays.filter((key) => !Array.isArray(candidate[key]));
+  if (missing.length) {
+    throw Object.assign(new Error(`Invalid POS state payload. Missing arrays: ${missing.join(", ")}`), { statusCode: 400 });
+  }
+  if (!candidate.settings || typeof candidate.settings !== "object" || Array.isArray(candidate.settings)) {
+    throw Object.assign(new Error("Invalid POS state payload. Missing settings object."), { statusCode: 400 });
+  }
+  return candidate;
+}
+
+function isLoginLocked(key) {
+  const info = failedLogins.get(key);
+  if (!info) return false;
+  if (info.lockedUntil && info.lockedUntil > Date.now()) return true;
+  if (info.lockedUntil && info.lockedUntil <= Date.now()) failedLogins.delete(key);
+  return false;
+}
+
+function recordLoginFailure(key) {
+  const current = failedLogins.get(key) || { count: 0, lockedUntil: 0 };
+  current.count += 1;
+  if (current.count >= maxLoginAttempts) {
+    current.lockedUntil = Date.now() + loginLockMs;
+  }
+  failedLogins.set(key, current);
+  return current;
+}
+
+function clearLoginFailures(key) {
+  failedLogins.delete(key);
 }
 
 function notifyStateUpdated() {
@@ -207,13 +317,20 @@ function sendSse(request, response) {
   });
 }
 
-function updateStore(nextState) {
+function updateStore(nextState, request, session, reason = "state_update") {
+  const validatedState = validateSharedState(nextState || {});
   store = {
     version: store.version + 1,
     updatedAt: new Date().toISOString(),
-    state: nextState || {}
+    state: validatedState
   };
   saveStore();
+  appendAudit(reason, request || { headers: {}, socket: {} }, session || null, {
+    products: validatedState.products.length,
+    tables: validatedState.tables.length,
+    orders: validatedState.orders.length,
+    salesHistory: validatedState.salesHistory.length
+  });
   notifyStateUpdated();
 }
 
@@ -234,7 +351,8 @@ async function handleApi(request, response, requestUrl) {
       user: session ? publicUser(session.user) : null,
       csrfToken: session ? session.csrfToken : null,
       version: store.version,
-      localIp: getLanAddress()
+      localIp: getLanAddress(),
+      backups: getBackupInfo()
     });
     return;
   }
@@ -243,14 +361,23 @@ async function handleApi(request, response, requestUrl) {
     const body = await readJsonBody(request);
     const username = String(body.username || "").trim().toLowerCase();
     const password = String(body.password || "");
+    const loginKey = `${getClientIp(request)}:${username || "unknown"}`;
+    if (isLoginLocked(loginKey)) {
+      appendAudit("login_locked", request, null, { username });
+      sendJson(request, response, 429, { error: "Too many login attempts. Please wait and try again." });
+      return;
+    }
     const user = getUsers().find((item) => {
       return String(item.username || "").trim().toLowerCase() === username &&
         String(item.password || "") === password;
     });
     if (!user) {
+      const failure = recordLoginFailure(loginKey);
+      appendAudit("login_failed", request, null, { username, attempts: failure.count });
       sendJson(request, response, 401, { error: "Invalid username or password." });
       return;
     }
+    clearLoginFailures(loginKey);
     const sid = makeToken();
     const csrfToken = makeToken(16);
     sessions.set(sid, {
@@ -260,6 +387,7 @@ async function handleApi(request, response, requestUrl) {
       createdAt: Date.now(),
       lastSeen: Date.now()
     });
+    appendAudit("login_success", request, { user: publicUser(user) }, { username });
     sendJson(request, response, 200, {
       ok: true,
       user: publicUser(user),
@@ -273,6 +401,7 @@ async function handleApi(request, response, requestUrl) {
   if (action === "logout" && request.method === "POST") {
     const cookies = parseCookies(request.headers.cookie || "");
     if (cookies.pos_session) sessions.delete(cookies.pos_session);
+    appendAudit("logout", request, session, {});
     sendJson(request, response, 200, { ok: true }, {
       "Set-Cookie": "pos_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
     });
@@ -315,7 +444,7 @@ async function handleApi(request, response, requestUrl) {
       });
       return;
     }
-    updateStore(body.state || {});
+    updateStore(body.state || {}, request, session, "state_update");
     sendJson(request, response, 200, {
       ok: true,
       exists: true,
@@ -340,13 +469,7 @@ async function handleLegacyState(request, response) {
   }
 
   if (request.method === "PUT") {
-    const body = await readJsonBody(request);
-    updateStore(body.payload || body.state || {});
-    sendJson(request, response, 200, {
-      version: store.version,
-      updatedAt: store.updatedAt,
-      payload: store.state
-    });
+    sendJson(request, response, 410, { error: "Legacy unauthenticated state writes are disabled. Use /api/index.php?action=state." });
     return;
   }
 
@@ -395,8 +518,17 @@ const server = http.createServer(async (request, response) => {
     }
     serveStatic(request, response, requestUrl);
   } catch (error) {
-    sendJson(request, response, 500, { error: error.message });
+    appendAudit("server_error", request, null, { message: error.message });
+    sendJson(request, response, error.statusCode || 500, { error: error.message });
   }
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught server exception:", error);
+});
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled server rejection:", error);
 });
 
 server.listen(port, "0.0.0.0", () => {
