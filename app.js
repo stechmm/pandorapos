@@ -773,6 +773,40 @@ function populatePrinterDropdowns() {
   // Set current selected names
   if (state.settings.printerName) kSelect.value = state.settings.printerName;
   if (state.settings.drinksPrinterName) dSelect.value = state.settings.drinksPrinterName;
+  const status = document.getElementById('printerDetectionStatus');
+  if (status) {
+    status.textContent = printers.length
+      ? `${printers.length} printer driver(s) detected.`
+      : 'No system printer detected yet. Simulated printers are available.';
+  }
+}
+
+async function refreshSystemPrinters() {
+  const status = document.getElementById('printerDetectionStatus');
+  const btn = document.getElementById('refreshPrintersBtn');
+  if (status) status.textContent = 'Detecting printer drivers...';
+  if (btn) btn.disabled = true;
+  try {
+    const payload = await apiRequest('printers', { method: 'GET' });
+    state.systemPrinters = Array.isArray(payload.printers) ? payload.printers : [];
+    populatePrinterDropdowns();
+  } catch (error) {
+    console.warn('Printer detection failed:', error);
+    if (status) status.textContent = 'Printer detection failed. Check local server permissions.';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function switchRestaurantSettingsTab(tabName) {
+  const tabIds = ['brand', 'printers', 'voucher', 'presets', 'users'];
+  tabIds.forEach(id => {
+    const pane = document.getElementById(`settingsTabPane_${id}`);
+    const btn = document.getElementById(`settingsTabBtn_${id}`);
+    const active = id === tabName;
+    if (pane) pane.style.display = active ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', active);
+  });
 }
 
 function applySettings() {
@@ -6003,6 +6037,8 @@ function openRestaurantConfigModal() {
     applySettings(); // Sync current values
     renderPresetsSettingsLists();
     renderUserManagement();
+    switchRestaurantSettingsTab('brand');
+    refreshSystemPrinters();
     modal.classList.add('active');
   }
 }

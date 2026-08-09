@@ -70,6 +70,13 @@ function sampleState() {
     assert.equal(status.authenticated, false);
     assert.equal(typeof status.backups.count, 'number');
 
+    const printersRes = await fetch(`${baseUrl}/api/index.php?action=printers`);
+    assert.equal(printersRes.status, 200);
+    const printers = await printersRes.json();
+    assert.equal(printers.ok, true);
+    assert.ok(Array.isArray(printers.printers));
+    assert.equal(typeof printers.platform, 'string');
+
     const badLoginRes = await fetch(`${baseUrl}/api/index.php?action=login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

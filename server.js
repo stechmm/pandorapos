@@ -3,6 +3,7 @@ const fs = require("fs");
 const http = require("http");
 const os = require("os");
 const path = require("path");
+const { execFile } = require("child_process");
 
 const rootDir = __dirname;
 const dataDir = process.env.POS_DATA_DIR || rootDir;
@@ -181,6 +182,35 @@ function getLanAddress() {
     .find((item) => item && item.family === "IPv4" && !item.internal)?.address || "127.0.0.1";
 }
 
+function detectSystemPrinters() {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") {
+      resolve([]);
+      return;
+    }
+    const script = "Get-CimInstance Win32_Printer | Select-Object Name,Default,WorkOffline | ConvertTo-Json -Compress";
+    execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], { timeout: 8000 }, (error, stdout) => {
+      if (error || !stdout.trim()) {
+        resolve([]);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        resolve(list
+          .filter((item) => item && item.Name)
+          .map((item) => ({
+            name: String(item.Name),
+            isDefault: Boolean(item.Default),
+            offline: Boolean(item.WorkOffline)
+          })));
+      } catch {
+        resolve([]);
+      }
+    });
+  });
+}
+
 function corsHeaders(request) {
   const origin = request.headers.origin;
   const allowedOrigin = process.env.CORS_ORIGIN || origin || "*";
@@ -353,6 +383,16 @@ async function handleApi(request, response, requestUrl) {
       version: store.version,
       localIp: getLanAddress(),
       backups: getBackupInfo()
+    });
+    return;
+  }
+
+  if (action === "printers" && request.method === "GET") {
+    const printers = await detectSystemPrinters();
+    sendJson(request, response, 200, {
+      ok: true,
+      printers,
+      platform: process.platform
     });
     return;
   }
