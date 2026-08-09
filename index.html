@@ -1475,37 +1475,39 @@
               <h4>Shop Brand</h4>
               <p>Set the shop name and logo for this POS installation.</p>
             </div>
-            <div class="settings-form-grid">
-              <div class="form-group">
-                <label for="setRestName">Shop Name</label>
-                <input type="text" id="setRestName" class="form-control" required>
-              </div>
-              <div class="form-group">
-                <label for="setCurrency">Currency</label>
-                <input type="text" id="setCurrency" class="form-control" required>
-              </div>
-            </div>
-            <div class="brand-settings-card">
-              <div class="brand-logo-preview-box">
-                <img src="logo.png" alt="Shop Logo Preview" id="setBrandLogoPreview" class="brand-logo-preview">
-              </div>
-              <div class="brand-settings-actions">
-                <label for="setBrandLogoFile">Shop Logo</label>
-                <div class="brand-logo-buttons">
-                  <button type="button" class="btn-mini-primary" onclick="document.getElementById('setBrandLogoFile')?.click()">
-                    <i class="fa-solid fa-image"></i> Upload
-                  </button>
-                  <button type="button" class="btn-mini-muted" onclick="removeBrandLogo()">Remove</button>
+            <div class="settings-compact-split">
+              <div class="settings-form-stack">
+                <div class="form-group">
+                  <label for="setRestName">Shop Name</label>
+                  <input type="text" id="setRestName" class="form-control" required>
                 </div>
-                <small>PNG/JPG/WebP, max 800 KB. This logo appears in the sidebar and vouchers.</small>
-                <input type="file" id="setBrandLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleBrandLogoUpload(event)">
-                <input type="hidden" id="setBrandLogoDataUrl">
+                <div class="form-group">
+                  <label for="setCurrency">Currency</label>
+                  <input type="text" id="setCurrency" class="form-control" required>
+                </div>
+                <label for="setEnableChatBot" class="settings-check-row">
+                  <input type="checkbox" id="setEnableChatBot">
+                  <span>Enable AI Chatbot</span>
+                </label>
+              </div>
+              <div class="brand-settings-card">
+                <div class="brand-logo-preview-box">
+                  <img src="logo.png" alt="Shop Logo Preview" id="setBrandLogoPreview" class="brand-logo-preview">
+                </div>
+                <div class="brand-settings-actions">
+                  <label for="setBrandLogoFile">Shop Logo</label>
+                  <div class="brand-logo-buttons">
+                    <button type="button" class="btn-mini-primary" onclick="document.getElementById('setBrandLogoFile')?.click()">
+                      <i class="fa-solid fa-image"></i> Upload
+                    </button>
+                    <button type="button" class="btn-mini-muted" onclick="removeBrandLogo()">Remove</button>
+                  </div>
+                  <small>PNG/JPG/WebP, max 800 KB. Used in sidebar and vouchers.</small>
+                  <input type="file" id="setBrandLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleBrandLogoUpload(event)">
+                  <input type="hidden" id="setBrandLogoDataUrl">
+                </div>
               </div>
             </div>
-            <label for="setEnableChatBot" class="settings-check-row">
-              <input type="checkbox" id="setEnableChatBot">
-              <span>Enable AI Chatbot</span>
-            </label>
           </section>
 
           <section class="settings-tab-pane" id="settingsTabPane_printers" style="display:none;">
@@ -1549,12 +1551,10 @@
                 <label for="setVoucherPhone">Phone</label>
                 <input type="text" id="setVoucherPhone" class="form-control" placeholder="+95...">
               </div>
-            </div>
-            <div class="form-group">
-              <label for="setVoucherAddress">Address</label>
-              <textarea id="setVoucherAddress" class="form-control" rows="2" placeholder="Shop address"></textarea>
-            </div>
-            <div class="settings-form-grid">
+              <div class="form-group">
+                <label for="setVoucherAddress">Address</label>
+                <textarea id="setVoucherAddress" class="form-control settings-compact-textarea" rows="2" placeholder="Shop address"></textarea>
+              </div>
               <div class="form-group">
                 <label for="setVoucherFooter">Footer Note</label>
                 <input type="text" id="setVoucherFooter" class="form-control" placeholder="Thank you.">
@@ -1566,11 +1566,11 @@
                   <option value="58mm">58mm thermal paper</option>
                 </select>
               </div>
+              <label for="setVoucherShowLogo" class="settings-check-row settings-check-row-inline">
+                <input type="checkbox" id="setVoucherShowLogo">
+                <span>Show logo on customer voucher</span>
+              </label>
             </div>
-            <label for="setVoucherShowLogo" class="settings-check-row">
-              <input type="checkbox" id="setVoucherShowLogo">
-              <span>Show logo on customer voucher</span>
-            </label>
           </section>
 
           <section class="settings-tab-pane" id="settingsTabPane_presets" style="display:none;">
