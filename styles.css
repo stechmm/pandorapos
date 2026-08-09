@@ -278,6 +278,7 @@ body {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--panel-border);
   overflow: hidden;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
@@ -411,9 +412,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding-right: 2px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .settings-bottom-actions {
@@ -447,6 +448,16 @@ body {
   font-size: 0.84rem;
 }
 
+.restaurant-settings-modal *,
+.restaurant-settings-modal *::before,
+.restaurant-settings-modal *::after {
+  scrollbar-width: none;
+}
+
+.restaurant-settings-modal *::-webkit-scrollbar {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .restaurant-settings-modal {
     width: calc(100vw - 18px);
@@ -465,11 +476,12 @@ body {
   }
 
   .settings-tabs {
-    overflow-x: auto;
+    overflow: hidden;
+    flex-wrap: wrap;
   }
 
   .settings-tab-content {
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .settings-bottom-actions {
