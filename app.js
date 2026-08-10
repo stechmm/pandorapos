@@ -14,6 +14,8 @@ let state = {
   currentCart: {
     type: 'dine-in', // 'dine-in' or 'takeaway'
     tableId: null,
+    activeOrderId: null,
+    draftOrderId: null,
     items: [],
     subtotal: 0,
     discount: 0,
@@ -55,6 +57,7 @@ const DEFAULT_VOUCHER_SETTINGS = {
   voucherFooter: 'Thank you for your purchase.',
   voucherShowLogo: true,
   voucherPaperSize: '80mm',
+  printerCutPaper: false,
   brandLogoDataUrl: ''
 };
 const OWNER_DEFAULT_USER = {
@@ -763,7 +766,9 @@ function populatePrinterDropdowns() {
     `;
   } else {
     optionsHTML = printers.map(p => `
-      <option value="${p.name}" ${p.isDefault ? 'selected' : ''}>${p.name} ${p.isDefault ? '(Default)' : ''}</option>
+      <option value="${escapeHtml(p.name)}" ${p.isDefault ? 'selected' : ''}>
+        ${escapeHtml(p.name)}${p.driverName ? ` - ${escapeHtml(p.driverName)}` : ''}${p.portName ? ` - ${escapeHtml(p.portName)}` : ''}${p.isDefault ? ' (Default)' : ''}
+      </option>
     `).join('');
   }
   
@@ -775,8 +780,9 @@ function populatePrinterDropdowns() {
   if (state.settings.drinksPrinterName) dSelect.value = state.settings.drinksPrinterName;
   const status = document.getElementById('printerDetectionStatus');
   if (status) {
+    const lptPrinters = printers.filter(p => String(p.portName || '').toUpperCase().startsWith('LPT'));
     status.textContent = printers.length
-      ? `${printers.length} printer driver(s) detected.`
+      ? `${printers.length} printer driver(s) detected.${lptPrinters.length ? ' Warning: LPT port printers may not print if your thermal printer is USB.' : ''}`
       : 'No system printer detected yet. Simulated printers are available.';
   }
 }
@@ -807,6 +813,45 @@ function switchRestaurantSettingsTab(tabName) {
     if (pane) pane.style.display = active ? 'block' : 'none';
     if (btn) btn.classList.toggle('active', active);
   });
+  if (tabName === 'voucher') renderVoucherSettingsPreview();
+}
+
+function renderVoucherSettingsPreview() {
+  const preview = document.getElementById('voucherSettingsPreview');
+  if (!preview) return;
+
+  const title = document.getElementById('setVoucherTitle')?.value.trim()
+    || state.settings.voucherTitle
+    || state.settings.restaurantName
+    || 'Pandora POS';
+  const phone = document.getElementById('setVoucherPhone')?.value.trim()
+    || state.settings.voucherPhone
+    || '09 123 456 789';
+  const address = document.getElementById('setVoucherAddress')?.value.trim()
+    || state.settings.voucherAddress
+    || 'No. 12, Main Street';
+  const footer = document.getElementById('setVoucherFooter')?.value.trim()
+    || state.settings.voucherFooter
+    || 'Thank you.';
+  preview.innerHTML = `
+    <div class="voucher-preview-center">
+      <div class="voucher-preview-strong">${escapeHtml(title)}</div>
+      <div>${escapeHtml(address)}</div>
+      <div>Phone: ${escapeHtml(phone)}</div>
+    </div>
+    <div class="voucher-preview-line"></div>
+    <div class="voucher-preview-row"><span>Bill</span><span>DEMO-001</span></div>
+    <div class="voucher-preview-row"><span>Cashier</span><span>Admin</span></div>
+    <div class="voucher-preview-line"></div>
+    <div class="voucher-preview-row"><span>Chicken Noodle x1</span><span>5,000</span></div>
+    <div class="voucher-preview-row"><span>Coca Cola x2</span><span>5,000</span></div>
+    <div class="voucher-preview-line"></div>
+    <div class="voucher-preview-row"><span>Subtotal</span><span>10,000</span></div>
+    <div class="voucher-preview-row"><span>Tax</span><span>0</span></div>
+    <div class="voucher-preview-row voucher-preview-strong"><span>Total</span><span>10,000 MMK</span></div>
+    <div class="voucher-preview-line"></div>
+    <div class="voucher-preview-center">${escapeHtml(footer)}</div>
+  `;
 }
 
 function applySettings() {
@@ -856,18 +901,26 @@ function applySettings() {
   if (setDrinksPrinterName) {
     setDrinksPrinterName.value = state.settings.drinksPrinterName || "POS-80 Drinks Printer (Simulated)";
   }
+  const setPrinterCutPaper = document.getElementById('setPrinterCutPaper');
+  if (setPrinterCutPaper) setPrinterCutPaper.checked = state.settings.printerCutPaper === true;
   const setVoucherTitle = document.getElementById('setVoucherTitle');
   const setVoucherAddress = document.getElementById('setVoucherAddress');
   const setVoucherPhone = document.getElementById('setVoucherPhone');
   const setVoucherFooter = document.getElementById('setVoucherFooter');
-  const setVoucherShowLogo = document.getElementById('setVoucherShowLogo');
   if (setVoucherTitle) setVoucherTitle.value = state.settings.voucherTitle || state.settings.restaurantName || 'Pandora POS';
   if (setVoucherAddress) setVoucherAddress.value = state.settings.voucherAddress || '';
   if (setVoucherPhone) setVoucherPhone.value = state.settings.voucherPhone || '';
   if (setVoucherFooter) setVoucherFooter.value = state.settings.voucherFooter || '';
-  if (setVoucherShowLogo) setVoucherShowLogo.checked = state.settings.voucherShowLogo !== false;
   const setVoucherPaperSize = document.getElementById('setVoucherPaperSize');
   if (setVoucherPaperSize) setVoucherPaperSize.value = state.settings.voucherPaperSize || '80mm';
+  [setVoucherTitle, setVoucherAddress, setVoucherPhone, setVoucherFooter, setVoucherPaperSize].forEach(el => {
+    if (el && !el.dataset.voucherPreviewBound) {
+      el.addEventListener('input', renderVoucherSettingsPreview);
+      el.addEventListener('change', renderVoucherSettingsPreview);
+      el.dataset.voucherPreviewBound = '1';
+    }
+  });
+  renderVoucherSettingsPreview();
   
   // Online sync uses the same origin the app was loaded from.
   SERVER_API = 'api/index.php';
@@ -1179,6 +1232,12 @@ function setupEventListeners() {
         dropdown.style.display = 'none';
       }
     }
+
+    const tableDropdown = document.getElementById('tableManageDropdown');
+    const tableActions = document.getElementById('tableManageActions');
+    if (tableDropdown && tableActions && tableDropdown.style.display === 'block' && !tableActions.contains(e.target)) {
+      tableDropdown.style.display = 'none';
+    }
   });
   
   // Font scale buttons
@@ -1295,7 +1354,7 @@ function normalizeStaticUiLabels() {
   const dashboardPane = document.getElementById('dashboard-pane');
   if (dashboardPane) {
     const statTitles = dashboardPane.querySelectorAll('.stat-card h3');
-    ['Sales Today', 'Orders Today', 'Expenses Today', 'Low Stock'].forEach((label, index) => {
+    ['Sales Today', 'Expenses Today', 'Low Stock'].forEach((label, index) => {
       if (statTitles[index]) statTitles[index].textContent = label;
     });
     const dateOptions = document.querySelectorAll('#dashboardDateFilter option');
@@ -1374,6 +1433,41 @@ function sanitizeMojibakeLeafText(root) {
 }
 
 // --- A. DASHBOARD CONTROLLER ---
+function getPaymentMethodKey(method) {
+  const value = String(method || 'Cash').trim().toLowerCase();
+  if (value.includes('kpay') || value.includes('kbz')) return 'kpay';
+  if (value.includes('mmqr') || value.includes('qr')) return 'mmqr';
+  return 'cash';
+}
+
+function getSalesPaymentSummary(sales) {
+  const summary = {
+    cash: { label: 'Cash', total: 0, count: 0 },
+    kpay: { label: 'KPAY', total: 0, count: 0 },
+    mmqr: { label: 'MMQR', total: 0, count: 0 }
+  };
+
+  (sales || []).forEach(sale => {
+    const key = getPaymentMethodKey(sale.paymentMethod);
+    const total = Number(sale.total || sale.subtotal || 0);
+    summary[key].total += total;
+    summary[key].count += 1;
+  });
+
+  return summary;
+}
+
+function renderDashboardSalesPaymentBreakdown(filteredSales) {
+  const container = document.getElementById('dashboardSalesPaymentBreakdown');
+  if (!container) return;
+
+  const summary = getSalesPaymentSummary(filteredSales);
+  container.innerHTML = ['cash', 'kpay', 'mmqr'].map(key => {
+    const item = summary[key];
+    return `<span>${item.label} ${formatPrice(item.total)}</span>`;
+  }).join('');
+}
+
 function renderDashboard() {
   const filterSelect = document.getElementById('dashboardDateFilter');
   const filterMode = filterSelect ? filterSelect.value : 'today';
@@ -1415,16 +1509,14 @@ function renderDashboard() {
   
   // Update UI Labels based on filter mode
   const salesTitle = document.querySelector('#dashboard-pane .stat-card:nth-child(1) h3');
-  const ordersTitle = document.querySelector('#dashboard-pane .stat-card:nth-child(2) h3');
-  const expensesTitle = document.querySelector('#dashboard-pane .stat-card:nth-child(3) h3');
+  const expensesTitle = document.querySelector('#dashboard-pane .stat-card:nth-child(2) h3');
+  const lowStockTitle = document.querySelector('#dashboard-pane .stat-card:nth-child(3) h3');
   
   let salesLabel = '';
-  let ordersLabel = '';
   let expensesLabel = '';
 
   if (filterMode === 'today') {
     salesLabel = 'Sales Today';
-    ordersLabel = 'Orders Today';
     expensesLabel = 'Expenses Today';
   } else {
     let labelSuffix = '';
@@ -1434,13 +1526,12 @@ function renderDashboard() {
     else if (filterMode === 'all') labelSuffix = ' (All)';
     
     salesLabel = 'Sales' + labelSuffix;
-    ordersLabel = 'Orders' + labelSuffix;
     expensesLabel = 'Expenses' + labelSuffix;
   }
   
   if (salesTitle) salesTitle.textContent = salesLabel;
-  if (ordersTitle) ordersTitle.textContent = ordersLabel;
   if (expensesTitle) expensesTitle.textContent = expensesLabel;
+  if (lowStockTitle) lowStockTitle.textContent = 'Low Stock';
   
   // Sum sales of only active products (excluding deleted menu items)
   const salesSum = filteredSales.reduce((sum, sale) => {
@@ -1462,6 +1553,7 @@ function renderDashboard() {
     return sum + saleActiveSum;
   }, 0);
   document.getElementById('statTodaySales').textContent = formatPrice(salesSum);
+  renderDashboardSalesPaymentBreakdown(filteredSales);
   
   // Today's Orders (Completed in range + active orders filtered by range date)
   let todayActiveOrders = state.orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
@@ -1483,7 +1575,8 @@ function renderDashboard() {
       }
     });
   }
-  document.getElementById('statTodayOrders').textContent = filteredSales.length + todayActiveOrders.length;
+  const todayOrdersEl = document.getElementById('statTodayOrders');
+  if (todayOrdersEl) todayOrdersEl.textContent = filteredSales.length + todayActiveOrders.length;
   
   // 2. Filter Expenses
   let filteredExpenses = state.marketExpenses;
@@ -1547,7 +1640,7 @@ function renderTodaySoldItems(filteredSales) {
         
         if (!itemSummary[item.id]) {
           let displayName = item.name || originalProd.name;
-          let catName = 'á€Ÿá€„á€ºá€¸á€•á€½á€²';
+          let catName = 'Menu';
           if (originalProd.categoryId) {
             const cat = state.categories.find(c => c.id === originalProd.categoryId);
             if (cat) catName = cat.name;
@@ -1571,7 +1664,7 @@ function renderTodaySoldItems(filteredSales) {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          á€›á€±á€¬á€„á€ºá€¸á€›á€žá€±á€¬ á€Ÿá€„á€ºá€¸á€•á€½á€²á€…á€¬á€›á€„á€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«
+          No sold items found.
         </td>
       </tr>
     `;
@@ -1582,7 +1675,7 @@ function renderTodaySoldItems(filteredSales) {
     <tr>
       <td><strong>${item.name}</strong></td>
       <td><span class="expense-tag">${item.category.split(' ')[0]}</span></td>
-      <td style="font-weight: 700; text-align: center;">${item.quantity} á€•á€½á€²</td>
+      <td style="font-weight: 700; text-align: center;">${item.quantity} pcs</td>
       <td style="font-weight: 700; color: var(--accent-success);">${formatPrice(item.revenue)}</td>
     </tr>
   `).join('');
@@ -1730,40 +1823,21 @@ function showDashboardDetail(type) {
   bodyEl.innerHTML = '';
 
   if (type === 'sales') {
-    titleEl.textContent = 'Sales Detail' + filterText;
+    titleEl.textContent = 'Sales Summary' + filterText;
     const filteredSales = (state.salesHistory || []).filter(s => inSelectedRange(s.timestamp));
-    let totalSalesVal = 0;
-    let cashSalesVal = 0;
-    let mobileSalesVal = 0;
-
-    const rows = filteredSales.map(sale => {
-      const saleTotal = Number(sale.total || sale.subtotal || 0);
-      totalSalesVal += saleTotal;
-      if (sale.paymentMethod === 'Cash' || !sale.paymentMethod) cashSalesVal += saleTotal;
-      else mobileSalesVal += saleTotal;
-      const dateStr = sale.timestamp ? getLocalDateString(sale.timestamp) : '';
-      const timeStr = sale.timestamp ? new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
-      return `
-        <tr style="border-bottom:1px solid var(--panel-border);">
-          <td style="padding:10px 6px;"><strong>${sale.id || 'N/A'}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${dateStr} ${timeStr}</span></td>
-          <td style="padding:10px 6px;">${escapeHtml(sale.tableName || 'Takeaway')}</td>
-          <td style="padding:10px 6px; font-size:0.82rem; white-space:normal;">${itemListText(sale.items)}</td>
-          <td style="padding:10px 6px;">${escapeHtml(sale.paymentMethod || 'Cash')}</td>
-          <td style="padding:10px 6px; text-align:right; font-weight:800; color:var(--accent-success);">${formatPrice(saleTotal)}</td>
-        </tr>`;
-    }).join('');
+    const paymentSummary = getSalesPaymentSummary(filteredSales);
+    const totalSalesVal = filteredSales.reduce((sum, sale) => sum + Number(sale.total || sale.subtotal || 0), 0);
+    const salesCount = filteredSales.length;
 
     bodyEl.innerHTML = `
-      <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:15px;">
-        <div class="stat-card" style="padding:12px; --card-color:var(--accent-primary); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">Total Sales</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(totalSalesVal)}</div></div>
-        <div class="stat-card" style="padding:12px; --card-color:var(--accent-success); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">Cash</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(cashSalesVal)}</div></div>
-        <div class="stat-card" style="padding:12px; --card-color:var(--accent-brand-blue); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">Mobile</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(mobileSalesVal)}</div></div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:15px;">
+        <div class="stat-card" style="padding:12px; --card-color:var(--accent-primary); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">Total Sales</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(totalSalesVal)}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">${salesCount} bills</div></div>
+        <div class="stat-card" style="padding:12px; --card-color:var(--accent-success); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">Cash</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(paymentSummary.cash.total)}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">${paymentSummary.cash.count} bills</div></div>
+        <div class="stat-card" style="padding:12px; --card-color:var(--accent-brand-blue); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">KPAY</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(paymentSummary.kpay.total)}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">${paymentSummary.kpay.count} bills</div></div>
+        <div class="stat-card" style="padding:12px; --card-color:var(--accent-warning); cursor:default;"><div style="font-size:0.76rem; color:var(--text-secondary);">MMQR</div><div style="font-size:1.1rem; font-weight:800;">${formatPrice(paymentSummary.mmqr.total)}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">${paymentSummary.mmqr.count} bills</div></div>
       </div>
-      <div class="report-table-wrapper" style="max-height:400px; overflow:auto;">
-        <table class="sales-report-table" style="width:100%; border-collapse:collapse;">
-          <thead><tr style="text-align:left;"><th>Bill ID</th><th>Table / Type</th><th>Items</th><th>Payment</th><th style="text-align:right;">Total</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">No sales yet.</td></tr>'}</tbody>
-        </table>
+      <div style="padding:14px 16px; border:1px solid var(--panel-border); border-radius:var(--border-radius-md); background:rgba(148,163,184,0.08); color:var(--text-secondary); font-size:0.86rem; line-height:1.5;">
+        Dashboard sales summary only. For bill-by-bill history, use Reports.
       </div>
       <div style="margin-top:15px; text-align:right;"><button type="button" class="submit-btn" style="padding:8px 16px; font-size:0.85rem;" onclick="closeDashboardDetailModal(); switchTab('reports-pane');">Open Reports</button></div>`;
   } else if (type === 'orders') {
@@ -1808,18 +1882,18 @@ function showDashboardDetail(type) {
       </div>
       <div style="margin-top:15px; display:flex; gap:10px; justify-content:flex-end;"><button type="button" class="submit-btn" style="padding:8px 16px; font-size:0.85rem; background:var(--accent-brand-blue);" onclick="closeDashboardDetailModal(); switchTab('sales-pane');">Open POS</button><button type="button" class="submit-btn" style="padding:8px 16px; font-size:0.85rem;" onclick="closeDashboardDetailModal(); switchTab('kitchen-pane');">Open KDS</button></div>`;
   } else if (type === 'expenses') {
-    titleEl.textContent = 'Expenses Detail' + filterText;
+    titleEl.textContent = 'Expenses Summary' + filterText;
     const filteredExpenses = (state.marketExpenses || []).filter(e => {
       if (filterMode === 'today') return e.date === localToday;
       if (filterMode === 'all') return true;
       return e.date >= thresholdStr && e.date <= localToday;
     });
     const totalExpVal = filteredExpenses.reduce((sum, e) => sum + Number(e.cost || 0), 0);
-    const rows = filteredExpenses.map(exp => `
-      <tr style="border-bottom:1px solid var(--panel-border);"><td>${exp.date || 'N/A'}</td><td><strong>${escapeHtml(exp.itemName || '')}</strong></td><td style="text-align:center;">${exp.quantity || 1} ${escapeHtml(exp.unit || '')}</td><td>${escapeHtml(exp.notes || '-')}</td><td style="text-align:right; font-weight:800; color:var(--accent-danger);">${formatPrice(exp.cost || 0)}</td></tr>`).join('');
     bodyEl.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--panel-border); padding:15px; border-radius:var(--border-radius-md); margin-bottom:15px;"><span style="font-weight:800; color:var(--text-secondary);">Total Expenses</span><span style="font-size:1.35rem; font-weight:900; color:var(--accent-danger);">${formatPrice(totalExpVal)}</span></div>
-      <div class="report-table-wrapper" style="max-height:400px; overflow:auto;"><table class="sales-report-table" style="width:100%;"><thead><tr><th>Date</th><th>Item</th><th>Qty / Unit</th><th>Notes</th><th style="text-align:right;">Cost</th></tr></thead><tbody>${rows || '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">No expenses yet.</td></tr>'}</tbody></table></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--panel-border); padding:15px; border-radius:var(--border-radius-md); margin-bottom:12px;"><span style="font-weight:800; color:var(--text-secondary);">Total Expenses</span><span style="font-size:1.35rem; font-weight:900; color:var(--accent-danger);">${formatPrice(totalExpVal)}</span></div>
+      <div style="padding:14px 16px; border:1px solid var(--panel-border); border-radius:var(--border-radius-md); background:rgba(148,163,184,0.08); color:var(--text-secondary); font-size:0.86rem; line-height:1.5;">
+        Dashboard expenses summary only. For item-by-item expense history, use Open Expenses.
+      </div>
       <div style="margin-top:15px; text-align:right;"><button type="button" class="submit-btn" style="padding:8px 16px; font-size:0.85rem; background:var(--accent-danger);" onclick="closeDashboardDetailModal(); switchTab('market-pane');">Open Expenses</button></div>`;
   } else if (type === 'low_stock') {
     titleEl.textContent = 'Low Stock Items';
@@ -2179,7 +2253,8 @@ function clearCart() {
     total: 0,
     selectedTaxPresetId: 'tax-none',
     selectedDiscountPresetId: 'disc-none',
-    draftOrderId: null
+    draftOrderId: null,
+    activeOrderId: null
   };
   
   const select = document.getElementById('cartTableSelect');
@@ -2421,17 +2496,20 @@ function renderCart() {
   const step1BillTax = document.getElementById('step1BillTax');
 
   let isOccupied = false;
+  let isPendingTakeaway = false;
   if (state.currentCart.type === 'dine-in' && state.currentCart.tableId) {
     const tableId = state.currentCart.tableId;
     const table = state.tables.find(t => t.id === tableId || t.id === parseInt(tableId));
     if (table && (table.status === 'occupied' || table.status === 'billed')) {
       isOccupied = true;
     }
+  } else if (state.currentCart.type === 'takeaway' && state.currentCart.activeOrderId) {
+    isPendingTakeaway = state.orders.some(o => o.id === state.currentCart.activeOrderId);
   }
   
   const confirmBtn = document.getElementById('cartConfirmBtn');
   if (confirmBtn) {
-    if (isOccupied) {
+    if (isOccupied || isPendingTakeaway) {
       confirmBtn.innerHTML = `Send Kitchen`;
     } else {
       confirmBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> Confirm Order`;
@@ -2439,11 +2517,11 @@ function renderCart() {
   }
 
   if (step1PaymentBtn) {
-    step1PaymentBtn.style.display = isOccupied ? 'flex' : 'none';
+    step1PaymentBtn.style.display = (isOccupied || isPendingTakeaway) ? 'flex' : 'none';
   }
 
   if (step1BillSummary) {
-    if (isOccupied) {
+    if (isOccupied || isPendingTakeaway) {
       step1BillSummary.style.display = 'flex';
       if (step1BillSubtotal) step1BillSubtotal.textContent = formatPrice(state.currentCart.subtotal);
       
@@ -2614,6 +2692,48 @@ function applyCartDiscountPreset(presetId) {
   renderCart();
 }
 
+function upsertTakeawayOrderFromCart(status = 'pending') {
+  const cart = state.currentCart;
+  if (!cart || cart.type !== 'takeaway' || !Array.isArray(cart.items) || cart.items.length === 0) return null;
+
+  let order = null;
+  const existingId = cart.activeOrderId || cart.draftOrderId;
+  if (existingId) {
+    order = state.orders.find(o => o.id === existingId);
+  }
+
+  if (!order) {
+    order = {
+      id: generateSequentialOrderId(),
+      tableName: 'Takeaway',
+      type: 'takeaway',
+      status: status,
+      timestamp: new Date().toISOString().replace('Z', '')
+    };
+    state.orders.push(order);
+  }
+
+  applyProductStockDeltaForOrder(order, cart.items);
+  Object.assign(order, {
+    tableName: 'Takeaway',
+    type: 'takeaway',
+    items: cart.items.map(item => ({ ...item })),
+    subtotal: cart.subtotal,
+    discount: cart.discount,
+    tax: cart.tax,
+    total: cart.total,
+    memberId: cart.memberId || null,
+    selectedTaxPresetId: cart.selectedTaxPresetId || 'tax-none',
+    selectedDiscountPresetId: cart.selectedDiscountPresetId || 'disc-none',
+    status: status,
+    timestamp: new Date().toISOString().replace('Z', '')
+  });
+
+  cart.activeOrderId = order.id;
+  cart.draftOrderId = order.id;
+  return order;
+}
+
 // --- 2-STEP CART FLOW ---
 function confirmCartStep() {
   const cart = state.currentCart;
@@ -2649,7 +2769,7 @@ function confirmCartStep() {
       existingOrder.status = 'pending';
       existingOrder.timestamp = now.toISOString().replace('Z', '');
       targetOrder = existingOrder;
-      alert(`á€…á€¬á€¸á€•á€½á€² "${table.name}" á á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€žá€…á€ºá€™á€»á€¬á€¸á€¡á€¬á€¸ á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€ºá€žá€­á€¯á€· á€•á€­á€¯á€·á€†á€±á€¬á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!`);
+      alert(`Order for "${displayText(table.name)}" has been updated and sent to kitchen.`);
     } else {
       // Create new kitchen order
       const newOrder = {
@@ -2673,7 +2793,7 @@ function confirmCartStep() {
         table.activeOrderId = orderId;
       }
       targetOrder = newOrder;
-      alert(table ? `á€…á€¬á€¸á€•á€½á€² "${table.name}" á€¡á€á€½á€€á€º á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€¼á€®á€¸ á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€ºá€žá€­á€¯á€· á€•á€­á€¯á€·á€†á€±á€¬á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!` : `á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€žá€…á€ºá€¡á€¬á€¸ á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€ºá€žá€­á€¯á€· á€•á€­á€¯á€·á€†á€±á€¬á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!`);
+      alert(table ? `Order for "${displayText(table.name)}" has been confirmed and sent to kitchen.` : 'New order has been confirmed and sent to kitchen.');
     }
     
     showPrinterSlipModal(targetOrder, 'kitchen');
@@ -2684,65 +2804,17 @@ function confirmCartStep() {
     setPosMode('tables');
     
   } else {
-    const takeawayOrder = {
-      id: orderId,
-      tableName: 'Takeaway',
-      type: 'takeaway',
-      items: [...cart.items],
-      subtotal: cart.subtotal,
-      discount: cart.discount,
-      tax: cart.tax,
-      total: cart.total,
-      status: 'pending',
-      timestamp: now.toISOString().replace('Z', '')
-    };
-    applyProductStockDeltaForOrder(takeawayOrder, cart.items);
-    state.orders.push(takeawayOrder);
-    saveState();
-    
-    // Print kitchen slip
-    showPrinterSlipModal(takeawayOrder, 'kitchen');
-    
-    // Open payment checkout modal for immediate checkout
-    openPaymentSelectorModal(takeawayOrder, (method, target) => {
-      const finalSubtotal = target._computedSubtotal != null ? target._computedSubtotal : takeawayOrder.subtotal;
-      const finalDiscount = target._computedDiscount != null ? target._computedDiscount : takeawayOrder.discount;
-      const finalTax = target._computedTax != null ? target._computedTax : takeawayOrder.tax;
-      const finalTotal = target._computedTotal != null ? target._computedTotal : takeawayOrder.total;
+    const takeawayOrder = upsertTakeawayOrderFromCart('pending');
+    if (!takeawayOrder) return;
 
-      // Complete sale
-      const completedSale = {
-        id: generateSequentialOrderId(),
-        orderId: takeawayOrder.id,
-        tableName: takeawayOrder.tableName,
-        type: takeawayOrder.type,
-        items: takeawayOrder.items,
-        subtotal: finalSubtotal,
-        discount: finalDiscount,
-        tax: finalTax,
-        total: finalTotal,
-        paymentMethod: method,
-        stockAppliedItems: takeawayOrder.stockAppliedItems ? [...takeawayOrder.stockAppliedItems] : [],
-        recipeAppliedItems: takeawayOrder.recipeAppliedItems ? [...takeawayOrder.recipeAppliedItems] : [],
-        recipeDeductedAt: takeawayOrder.recipeDeductedAt || null,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Update order status
-      takeawayOrder.status = 'completed';
-      state.orders = state.orders.filter(o => o.id !== takeawayOrder.id);
-      state.salesHistory.push(completedSale);
-      
-      // Print customer copy receipt
-      showPrinterSlipModal(completedSale, 'customer');
-      
-      // Clear cart, refresh and go back to Tables Floor Map
-      clearCart();
-      renderSalesCounter();
-      saveState();
-      setPosMode('tables');
-      alert(`á€•á€«á€†á€šá€º á€„á€½á€±á€›á€¾á€„á€ºá€¸á€á€¼á€„á€ºá€¸ á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®! (${method})`);
-    });
+    saveState();
+    immediateServerSave();
+    showPrinterSlipModal(takeawayOrder, 'kitchen');
+    alert("Takeaway order saved. You can start another order now, then recall this one from Orders for payment.");
+
+    clearCart();
+    renderSalesCounter();
+    setPosMode('takeaway');
   }
 }
 
@@ -2814,18 +2886,23 @@ function processSendAction() {
       delete cart.draftOrderId;
       saveState();
       immediateServerSave(); // Push order to all devices instantly
-      alert(table ? `á€…á€¬á€¸á€•á€½á€² "${table.name}" á€á€½á€„á€º á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€¬á€¸ á€žá€­á€™á€ºá€¸á€†á€Šá€ºá€¸á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!` : "á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€¬á€¸ á€žá€­á€™á€ºá€¸á€†á€Šá€ºá€¸á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!");
+      alert(table ? `Order for "${displayText(table.name)}" has been saved and sent to kitchen.` : 'Order has been saved and sent to kitchen.');
     }
     
     clearCart();
     renderSalesCounter();
     setPosMode('tables');
   } else {
-    // Takeaway send
-    alert("Action completed.");
+    const takeawayOrder = upsertTakeawayOrderFromCart('pending');
+    if (takeawayOrder) {
+      showPrinterSlipModal(takeawayOrder, 'kitchen');
+      saveState();
+      immediateServerSave();
+      alert("Takeaway order sent to kitchen. You can start another order now.");
+    }
     clearCart();
     renderSalesCounter();
-    setPosMode('tables');
+    setPosMode('takeaway');
   }
 }
 
@@ -2908,12 +2985,78 @@ function processPaymentAction() {
       switchTab('sales-pane');
       setPosMode('tables');
       renderTablesFloorMap(); // force floor map refresh so table turns green
-      alert(`á€„á€½á€±á€›á€¾á€„á€ºá€¸á€á€¼á€„á€ºá€¸ á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®! (${method})`);
+      alert(`Payment completed. (${method})`);
     });
   } else {
     // Takeaway payment checkout
     if (cart.items.length === 0) {
       alert("Action completed.");
+      return;
+    }
+
+    const pendingOrderId = cart.activeOrderId || cart.draftOrderId;
+    const pendingOrder = pendingOrderId ? state.orders.find(o => o.id === pendingOrderId && o.type === 'takeaway') : null;
+    if (pendingOrder) {
+      applyProductStockDeltaForOrder(pendingOrder, cart.items);
+      Object.assign(pendingOrder, {
+        items: cart.items.map(item => ({ ...item })),
+        subtotal: cart.subtotal,
+        discount: cart.discount,
+        tax: cart.tax,
+        total: cart.total,
+        memberId: cart.memberId || null,
+        selectedTaxPresetId: cart.selectedTaxPresetId || 'tax-none',
+        selectedDiscountPresetId: cart.selectedDiscountPresetId || 'disc-none'
+      });
+      saveState();
+      immediateServerSave();
+
+      openPaymentSelectorModal(pendingOrder, (method, target) => {
+        const finalSubtotal = target._computedSubtotal != null ? target._computedSubtotal : pendingOrder.subtotal;
+        const finalDiscount = target._computedDiscount != null ? target._computedDiscount : pendingOrder.discount;
+        const finalTax = target._computedTax != null ? target._computedTax : pendingOrder.tax;
+        const finalTotal = target._computedTotal != null ? target._computedTotal : pendingOrder.total;
+
+        const completedSale = {
+          id: pendingOrder.id,
+          orderId: pendingOrder.id,
+          tableName: 'Takeaway',
+          type: 'takeaway',
+          items: [...pendingOrder.items],
+          subtotal: finalSubtotal,
+          discount: finalDiscount,
+          tax: finalTax,
+          total: finalTotal,
+          paymentMethod: method,
+          memberId: pendingOrder.memberId || null,
+          stockAppliedItems: pendingOrder.stockAppliedItems ? [...pendingOrder.stockAppliedItems] : [],
+          recipeAppliedItems: pendingOrder.recipeAppliedItems ? [...pendingOrder.recipeAppliedItems] : [],
+          recipeDeductedAt: pendingOrder.recipeDeductedAt || null,
+          timestamp: now.toISOString().replace('Z', '')
+        };
+
+        if (completedSale.memberId) {
+          const pointsEarned = Math.floor(finalTotal / 1000);
+          completedSale.pointsEarned = pointsEarned;
+          const customer = state.customers.find(c => c.id === completedSale.memberId);
+          if (customer) {
+            customer.points = (customer.points || 0) + pointsEarned;
+            customer.totalSpending = (customer.totalSpending || 0) + finalTotal;
+          }
+        }
+
+        pendingOrder.status = 'completed';
+        state.orders = state.orders.filter(o => o.id !== pendingOrder.id);
+        state.salesHistory.push(completedSale);
+        saveState();
+        immediateServerSave();
+
+        showPrinterSlipModal(completedSale, 'customer');
+        clearCart();
+        renderSalesCounter();
+        setPosMode('takeaway');
+        alert(`Takeaway payment completed. (${method})`);
+      });
       return;
     }
     
@@ -2975,7 +3118,7 @@ function processPaymentAction() {
       
       clearCart();
       renderSalesCounter();
-      alert(`á€•á€«á€†á€šá€º á€„á€½á€±á€›á€¾á€„á€ºá€¸á€á€¼á€„á€ºá€¸ á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®! (${method})`);
+      alert(`Takeaway payment completed. (${method})`);
     });
   }
 }
@@ -2988,8 +3131,10 @@ function showPrinterSlipModal(order, slipType) {
   if (!overlay || !content) return;
   
   ensureVoucherSettings();
-  content.dataset.paperSize = state.settings.voucherPaperSize || '80mm';
-  title.textContent = slipType === 'kitchen' ? 'á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€ºá€žá€¯á€¶á€¸ á€–á€¼á€á€ºá€•á€­á€¯á€„á€ºá€¸á€•á€¯á€¶á€…á€¶ (Kitchen Ticket)' : 'á€„á€½á€±á€›á€›á€¾á€­á€™á€¾á€¯ á€–á€¼á€á€ºá€•á€­á€¯á€„á€ºá€¸á€•á€¯á€¶á€…á€¶ (Customer Receipt)';
+  const isKitchenSlip = slipType === 'kitchen';
+  content.dataset.paperSize = isKitchenSlip ? '58mm' : (state.settings.voucherPaperSize || '80mm');
+  content.dataset.slipType = slipType;
+  title.textContent = slipType === 'kitchen' ? 'Kitchen Ticket' : 'Customer Receipt';
   
   const formattedTime = new Date(order.timestamp).toLocaleString('my-MM');
   
@@ -3010,40 +3155,39 @@ function showPrinterSlipModal(order, slipType) {
     
     if (kitchenItems.length > 0) {
       let kitchenSlip = `
-        <div class="receipt-header">
-          <div style="font-size: 1.4rem; font-weight: bold;">KITCHEN ORDER TICKET</div>
-          <div style="font-size: 0.95rem;">Printer: ${state.settings.printerName || "POS-80 Kitchen Printer"}</div>
+        <div class="receipt-header receipt-kitchen-header">
+          <div class="receipt-kitchen-title">KITCHEN ORDER TICKET</div>
+          <div class="receipt-kitchen-subtitle">Printer: ${state.settings.printerName || "POS-80 Kitchen Printer"}</div>
         </div>
         <div class="receipt-divider"></div>
         <div class="receipt-info-row">
-          <span>Order Ref: <strong>${order.id}</strong></span>
-          <span>á€…á€¬á€¸á€•á€½á€²: <strong>${order.tableName}</strong></span>
+          <span>Order: <strong>${order.id}</strong></span>
+          <span>Table: <strong>${escapeHtml(displayText(order.tableName, 'Takeaway'))}</strong></span>
         </div>
         <div class="receipt-info-row">
-          <span>á€¡á€á€»á€­á€”á€º: ${new Date().toLocaleTimeString()}</span>
-          <span>á€¡á€™á€»á€­á€¯á€¸á€¡á€…á€¬á€¸: ${order.type === 'takeaway' ? 'á€•á€«á€†á€šá€º (Takeaway)' : 'Dine-in'}</span>
+          <span>Time: ${new Date().toLocaleTimeString()}</span>
+          <span>Type: ${order.type === 'takeaway' ? 'Takeaway' : 'Dine-in'}</span>
         </div>
         <div class="receipt-divider"></div>
-        
-        <div style="margin-top: 10px;">
+        <div class="receipt-kitchen-items">
       `;
       
-      kitchenItems.forEach(item => {
-        kitchenSlip += `
-          <div class="receipt-item-row" style="font-size: 1rem; margin-bottom: 10px;">
-            <span class="receipt-item-name"><strong>[ ${item.quantity} x ] ${escapeHtml(item.name)}</strong></span>
+        kitchenItems.forEach(item => {
+          kitchenSlip += `
+          <div class="receipt-item-row receipt-kitchen-item">
+            <span class="receipt-item-name"><strong>[ ${item.quantity} x ] ${escapeHtml(displayText(item.name, 'Item'))}</strong></span>
           </div>
         `;
         if (item.note) {
-          kitchenSlip += `<div class="receipt-item-note" style="font-size: 0.9rem; color: #ff0000; margin-left: 20px; font-weight: bold;">*** á€™á€¾á€á€ºá€á€»á€€á€º: ${escapeHtml(item.note)}</div>`;
+          kitchenSlip += `<div class="receipt-item-note receipt-kitchen-note">*** Note: ${escapeHtml(displayText(item.note))}</div>`;
         }
       });
       
       kitchenSlip += `
         </div>
         <div class="receipt-divider"></div>
-        <div class="receipt-footer" style="font-weight: bold; font-size: 1rem;">
-          * á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€ºá€á€½á€„á€º á€¡á€™á€¼á€”á€ºá€†á€¯á€¶á€¸á€•á€¼á€„á€ºá€†á€„á€ºá€•á€±á€¸á€•á€« *
+        <div class="receipt-footer receipt-kitchen-footer">
+          * Prepare this order as soon as possible *
         </div>
       `;
       slips.push(kitchenSlip);
@@ -3052,57 +3196,52 @@ function showPrinterSlipModal(order, slipType) {
     if (drinksItems.length > 0) {
       const drinksPrinterName = state.settings.drinksPrinterName || "POS-80 Drinks Printer (Simulated)";
       let drinksSlip = `
-        <div class="receipt-header">
-          <div style="font-size: 1.4rem; font-weight: bold;">DRINKS COUNTER TICKET</div>
-          <div style="font-size: 0.95rem;">Printer: ${drinksPrinterName}</div>
+        <div class="receipt-header receipt-kitchen-header">
+          <div class="receipt-kitchen-title">DRINKS COUNTER TICKET</div>
+          <div class="receipt-kitchen-subtitle">Printer: ${drinksPrinterName}</div>
         </div>
         <div class="receipt-divider"></div>
         <div class="receipt-info-row">
-          <span>Order Ref: <strong>${order.id}</strong></span>
-          <span>á€…á€¬á€¸á€•á€½á€²: <strong>${order.tableName}</strong></span>
+          <span>Order: <strong>${order.id}</strong></span>
+          <span>Table: <strong>${escapeHtml(displayText(order.tableName, 'Takeaway'))}</strong></span>
         </div>
         <div class="receipt-info-row">
-          <span>á€¡á€á€»á€­á€”á€º: ${new Date().toLocaleTimeString()}</span>
-          <span>á€¡á€™á€»á€­á€¯á€¸á€¡á€…á€¬á€¸: ${order.type === 'takeaway' ? 'á€•á€«á€†á€šá€º (Takeaway)' : 'Dine-in'}</span>
+          <span>Time: ${new Date().toLocaleTimeString()}</span>
+          <span>Type: ${order.type === 'takeaway' ? 'Takeaway' : 'Dine-in'}</span>
         </div>
         <div class="receipt-divider"></div>
-        
-        <div style="margin-top: 10px;">
+        <div class="receipt-kitchen-items">
       `;
       
       drinksItems.forEach(item => {
         drinksSlip += `
-          <div class="receipt-item-row" style="font-size: 1rem; margin-bottom: 10px;">
-            <span class="receipt-item-name"><strong>[ ${item.quantity} x ] ${escapeHtml(item.name)}</strong></span>
+          <div class="receipt-item-row receipt-kitchen-item">
+            <span class="receipt-item-name"><strong>[ ${item.quantity} x ] ${escapeHtml(displayText(item.name, 'Item'))}</strong></span>
           </div>
         `;
         if (item.note) {
-          drinksSlip += `<div class="receipt-item-note" style="font-size: 0.9rem; color: #ff0000; margin-left: 20px; font-weight: bold;">*** á€™á€¾á€á€ºá€á€»á€€á€º: ${escapeHtml(item.note)}</div>`;
+          drinksSlip += `<div class="receipt-item-note receipt-kitchen-note">*** Note: ${escapeHtml(displayText(item.note))}</div>`;
         }
       });
       
       drinksSlip += `
         </div>
         <div class="receipt-divider"></div>
-        <div class="receipt-footer" style="font-weight: bold; font-size: 1rem;">
-          * á€¡á€¡á€±á€¸á€€á€±á€¬á€„á€ºá€á€¬á€™á€¾ á€¡á€™á€¼á€”á€ºá€†á€¯á€¶á€¸á€•á€¼á€„á€ºá€†á€„á€ºá€•á€±á€¸á€•á€« *
+        <div class="receipt-footer receipt-kitchen-footer">
+          * Prepare drinks as soon as possible *
         </div>
       `;
       slips.push(drinksSlip);
     }
     
-    slipHtml = slips.join('<div style="border-top: 3px dashed var(--panel-border); margin: 35px 0; padding-top: 25px;"></div>');
+    slipHtml = slips.join('<div class="receipt-page-break"></div>');
   } else {
-    const voucherTitle = state.settings.voucherTitle || state.settings.restaurantName || 'Pandora POS';
-    const voucherAddress = state.settings.voucherAddress || '';
-    const voucherPhone = state.settings.voucherPhone || '';
-    const voucherFooter = state.settings.voucherFooter || 'Thank you.';
-    const voucherLogoHtml = state.settings.voucherShowLogo !== false
-      ? `<img src="${escapeHtml(getBrandLogoSrc())}" alt="Logo" style="width:42px; height:42px; object-fit:contain; margin-bottom:4px;">`
-      : '';
+    const voucherTitle = displayText(state.settings.voucherTitle || state.settings.restaurantName, 'Pandora POS');
+    const voucherAddress = displayText(state.settings.voucherAddress || '');
+    const voucherPhone = displayText(state.settings.voucherPhone || '');
+    const voucherFooter = displayText(state.settings.voucherFooter, 'Thank you.');
     slipHtml = `
       <div class="receipt-header">
-        ${voucherLogoHtml}
         <div class="receipt-title" style="font-size: 1.35rem; font-weight: 800;">${escapeHtml(voucherTitle)}</div>
         ${voucherAddress ? `<div style="font-size: 0.82rem; margin-top: 4px; line-height:1.35;">${escapeHtml(voucherAddress)}</div>` : ''}
         ${voucherPhone ? `<div class="receipt-subtitle" style="font-size: 0.82rem; margin-top: 2px;">Phone: ${escapeHtml(voucherPhone)}</div>` : ''}
@@ -3110,18 +3249,18 @@ function showPrinterSlipModal(order, slipType) {
       <div class="receipt-divider"></div>
       <div class="receipt-info-row">
         <span>Bill ID: ${order.id}</span>
-        <span>á€…á€¬á€¸á€•á€½á€²: ${order.tableName}</span>
+        <span>Table: ${escapeHtml(displayText(order.tableName, 'Takeaway'))}</span>
       </div>
       <div class="receipt-info-row">
-        <span>á€›á€€á€ºá€…á€½á€²: ${new Date(order.timestamp).toLocaleDateString()}</span>
-        <span>á€¡á€á€»á€­á€”á€º: ${new Date(order.timestamp).toLocaleTimeString()}</span>
+        <span>Date: ${new Date(order.timestamp).toLocaleDateString()}</span>
+        <span>Time: ${new Date(order.timestamp).toLocaleTimeString()}</span>
       </div>
       <div class="receipt-divider"></div>
     `;
     
     order.items.forEach(item => {
-      // For customer receipt: strip variant suffix like " (á€á€€á€ºá€žá€¬á€¸)" from name
-      const receiptName = item.name.replace(/\s*\([^)]+\)$/, '');
+      // For customer receipt: strip variant suffix like " (Pork)" from name
+      const receiptName = displayText(item.name, 'Item').replace(/\s*\([^)]+\)$/, '');
       slipHtml += `
         <div class="receipt-item-row">
           <span class="receipt-item-name">${escapeHtml(receiptName)}</span>
@@ -3129,7 +3268,7 @@ function showPrinterSlipModal(order, slipType) {
         </div>
       `;
       if (item.note) {
-        slipHtml += `<div class="receipt-item-note">Note: ${escapeHtml(item.note)}</div>`;
+        slipHtml += `<div class="receipt-item-note">Note: ${escapeHtml(displayText(item.note))}</div>`;
       }
     });
     
@@ -3142,15 +3281,15 @@ function showPrinterSlipModal(order, slipType) {
           <div class="receipt-divider"></div>
           <div style="font-size:0.82rem; line-height: 1.4; color: var(--text-primary); margin-top: 4px; padding: 4px 0;">
             <div style="display:flex; justify-content:space-between;">
-              <span>á€¡á€–á€½á€²á€·á€á€„á€ºá€¡á€™á€Šá€º (Member):</span>
-              <span><strong>${escapeHtml(c.name)}</strong></span>
+              <span>Member:</span>
+              <span><strong>${escapeHtml(displayText(c.name, 'Member'))}</strong></span>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span>á€›á€›á€¾á€­á€á€²á€·á€žá€±á€¬á€•á€½á€­á€¯á€„á€·á€º (Points Earned):</span>
+              <span>Points Earned:</span>
               <span style="color:var(--accent-success);"><strong>+${order.pointsEarned || Math.floor(order.total / 1000)} pt</strong></span>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span>á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸á€•á€½á€­á€¯á€„á€·á€º (Total Points):</span>
+              <span>Total Points:</span>
               <span><strong>${c.points || 0} pt</strong></span>
             </div>
           </div>
@@ -3160,27 +3299,27 @@ function showPrinterSlipModal(order, slipType) {
 
     slipHtml += `
       <div class="receipt-divider"></div>
-      <div class="receipt-total-section">
+      <div class="receipt-total-section receipt-inset-section">
         <div class="receipt-total-row">
-          <span>á€žá€„á€·á€ºá€„á€½á€± (Subtotal):</span>
+          <span>Subtotal:</span>
           <span>${formatPrice(order.subtotal)}</span>
         </div>
         ${order.discount > 0 ? `
         <div class="receipt-total-row" style="color: var(--accent-danger);">
-          <span>á€œá€»á€¾á€±á€¬á€·á€…á€»á€±á€¸ (Discount):</span>
+          <span>Discount:</span>
           <span>-${formatPrice(order.discount)}</span>
         </div>
         ` : ''}
         <div class="receipt-total-row">
-          <span>á€¡á€á€½á€”á€º (Tax):</span>
+          <span>Tax:</span>
           <span>${formatPrice(order.tax)}</span>
         </div>
         <div class="receipt-total-row grand">
-          <span>á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸ (Total):</span>
+          <span>Total:</span>
           <span>${formatPrice(order.total)}</span>
         </div>
-        <div class="receipt-total-row" style="font-size:0.85rem; margin-top:2px;">
-          <span>á€„á€½á€±á€•á€±á€¸á€á€»á€±á€™á€¾á€¯ (Payment):</span>
+        <div class="receipt-total-row receipt-payment-row" style="font-size:0.85rem; margin-top:2px;">
+          <span>Payment:</span>
           <span><strong>${order.paymentMethod || 'Cash'}</strong></span>
         </div>
       </div>
@@ -3201,8 +3340,93 @@ function closePrinterSlipModal() {
   document.getElementById('printerSlipModalOverlay').classList.remove('active');
 }
 
+function printReceiptInBrowser() {
+  const content = document.getElementById('simulatedThermalReceipt');
+  if (!content) return false;
+
+  const paperSize = content.dataset.paperSize || '80mm';
+  const slipType = content.dataset.slipType || 'customer';
+  const width = paperSize === '58mm' ? '58mm' : '80mm';
+  const printWindow = window.open('', '_blank', 'width=420,height=650');
+  if (!printWindow) {
+    alert('Print popup was blocked. Please allow popups for this POS app and try again.');
+    return false;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Print Slip</title>
+        <style>
+          @page { size: ${width} auto; margin: 0; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 6px 6px 16mm;
+            background: #ffffff;
+            color: #000000;
+            font-family: Arial, "Myanmar Text", "Noto Sans Myanmar", sans-serif;
+            font-size: ${slipType === 'kitchen' ? '11px' : '11px'};
+            font-weight: 400;
+          }
+          .print-paper {
+            width: ${width};
+            max-width: 100%;
+            margin: 0 auto;
+            padding-bottom: 14mm;
+          }
+          .receipt-header { text-align: center; margin-bottom: 10px; }
+          .receipt-kitchen-header { margin-bottom: 6px; }
+          .receipt-kitchen-title { font-size: 15px; font-weight: 800; letter-spacing: 0; }
+          .receipt-kitchen-subtitle { font-size: 11px; margin-top: 2px; }
+          .receipt-title { font-size: 15px; font-weight: 800; }
+          .receipt-subtitle { font-size: 11px; margin-top: 3px; }
+          .receipt-divider { border-top: 1px dashed #000; margin: ${slipType === 'kitchen' ? '5px' : '8px'} 0; }
+          .receipt-info-row,
+          .receipt-item-row,
+          .receipt-total-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+          }
+          .receipt-item-name { flex: 1; }
+          .receipt-item-qty-price { white-space: nowrap; }
+          .receipt-item-note { margin: 2px 0 5px 10px; font-size: 10px; }
+          .receipt-inset-section { padding-left: 3mm; padding-right: 3mm; }
+          .receipt-payment-row span:last-child { padding-right: 1mm; white-space: nowrap; }
+          .receipt-kitchen-items { margin-top: 4px; }
+          .receipt-kitchen-item { display: block; margin-bottom: 10px; line-height: 1.3; font-size: 12px; font-weight: 700; }
+          .receipt-kitchen-note { margin-left: 14px; font-size: 10px; font-style: normal; font-weight: 700; }
+          .receipt-kitchen-footer { margin-top: 10px; font-size: 12px; font-weight: 700; }
+          .receipt-page-break { page-break-after: always; break-after: page; height: 0; overflow: hidden; }
+          .receipt-total-row.grand { font-weight: 800; border-top: 1px solid #000; padding-top: 5px; }
+          .receipt-footer { text-align: center; margin-top: 12px; }
+          img { max-width: 42px; max-height: 42px; }
+        </style>
+      </head>
+      <body>
+        <div class="print-paper">${content.innerHTML}</div>
+        <script>
+          window.onload = function () {
+            window.focus();
+            window.print();
+            setTimeout(function () { window.close(); }, 500);
+          };
+        <\/script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  return true;
+}
+
 function simulatePrintSuccess() {
   const isElectron = !!(window.chrome && window.chrome.ipcRenderer || navigator.userAgent.indexOf('Electron') > -1);
+  const cutPaper = state.settings?.printerCutPaper === true;
   
   if (isElectron) {
     try {
@@ -3219,13 +3443,13 @@ function simulatePrintSuccess() {
         // Part 1 goes to Kitchen Printer
         if (parts[0] && parts[0].trim()) {
           const kitchenPrinterName = state.settings.printerName || 'POS-80 Kitchen Printer';
-          ipcRenderer.send('print-receipt', { html: parts[0], printerName: kitchenPrinterName });
+          ipcRenderer.send('print-receipt', { html: parts[0], printerName: kitchenPrinterName, cutPaper });
         }
         
         // Part 2 goes to Drinks Printer
         if (parts[1] && parts[1].trim()) {
           const drinksPrinterName = state.settings.drinksPrinterName || 'POS-80 Drinks Printer (Simulated)';
-          ipcRenderer.send('print-receipt', { html: parts[1], printerName: drinksPrinterName });
+          ipcRenderer.send('print-receipt', { html: parts[1], printerName: drinksPrinterName, cutPaper });
         }
       } else {
         // Single ticket (customer receipt or single kitchen slip)
@@ -3233,16 +3457,17 @@ function simulatePrintSuccess() {
         if (html.includes('DRINKS COUNTER TICKET')) {
           targetPrinter = state.settings.drinksPrinterName || 'POS-80 Drinks Printer (Simulated)';
         }
-        ipcRenderer.send('print-receipt', { html: html, printerName: targetPrinter });
+        ipcRenderer.send('print-receipt', { html: html, printerName: targetPrinter, cutPaper });
       }
       
-      alert("Action completed.");
+      alert("Print job sent to selected printer.");
     } catch (err) {
       console.error('Silent printing error:', err);
-      alert("á€•á€›á€„á€·á€ºá€‘á€¯á€á€ºá€…á€‰á€º á€¡á€™á€¾á€¬á€¸á€¡á€šá€½á€„á€ºá€¸á€›á€¾á€­á€•á€«á€žá€Šá€º: " + err.message);
+      alert("Silent printer failed. Opening browser print dialog instead. Error: " + err.message);
+      printReceiptInBrowser();
     }
   } else {
-    alert("Action completed.");
+    printReceiptInBrowser();
   }
   closePrinterSlipModal();
 }
@@ -3822,18 +4047,19 @@ function renderReportsPane() {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          á€¡á€›á€±á€¬á€„á€ºá€¸á€…á€¬á€›á€„á€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«
+          No sales history found.
         </td>
       </tr>
     `;
   } else {
     tbody.innerHTML = sortedSales.map(sale => {
       const timeStr = new Date(sale.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+      const saleId = escapeJsString(sale.id);
       return `
-        <tr>
-          <td><strong>${sale.id}</strong></td>
+        <tr class="clickable-report-row" onclick="openOrderDetailModal('${saleId}', 'sale')" title="View voucher detail">
+          <td><strong>${escapeHtml(sale.id)}</strong></td>
           <td>${timeStr}</td>
-          <td><span class="expense-tag">${sale.tableName}</span></td>
+          <td><span class="expense-tag">${escapeHtml(displayText(sale.tableName, 'Takeaway'))}</span></td>
           <td style="font-weight: 700; color: var(--accent-success);">${formatPrice(sale.total)}</td>
         </tr>
       `;
@@ -3864,10 +4090,10 @@ function renderReportsPane() {
     const expensePercent = Math.min(100, Math.round((totalExpenses / totalSales) * 100));
     const profitPercent = 100 - expensePercent;
     
-    ratioText.textContent = `á€á€„á€ºá€„á€½á€±á ${profitPercent}% á€žá€Šá€º á€¡á€™á€¼á€á€ºá€–á€¼á€…á€ºá€žá€Šá€ºá‹ (á€…á€›á€­á€á€ºá€žá€Šá€º ${expensePercent}%)`;
+    ratioText.textContent = `Profit is ${profitPercent}% of sales. Expenses are ${expensePercent}%.`;
     progressBar.style.width = profitPercent + '%';
   } else {
-    ratioText.textContent = 'á€¡á€›á€±á€¬á€„á€ºá€¸á€™á€›á€¾á€­á€žá€±á€¸á€•á€«';
+    ratioText.textContent = 'No sales yet.';
     progressBar.style.width = '0%';
   }
   
@@ -3904,14 +4130,14 @@ function renderReportsPane() {
       txBody.innerHTML = `
         <tr>
           <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">
-            á€™á€¾á€á€ºá€á€™á€ºá€¸ á€™á€›á€¾á€­á€•á€«
+            No transactions found.
           </td>
         </tr>
       `;
     } else {
       txBody.innerHTML = filteredTxs.map(t => {
         const formattedTime = new Date(t.timestamp).toLocaleString('my-MM');
-        const typeLabel = t.type === 'in' ? '<span class="status-badge preparing">In (á€„á€½á€±á€žá€½á€„á€ºá€¸)</span>' : '<span class="status-badge alert">Out (á€„á€½á€±á€‘á€¯á€á€º)</span>';
+        const typeLabel = t.type === 'in' ? '<span class="status-badge preparing">In</span>' : '<span class="status-badge alert">Out</span>';
         const amountStyle = t.type === 'in' ? 'color: var(--accent-success); font-weight: 700;' : 'color: var(--accent-danger); font-weight: 700;';
         const amountPrefix = t.type === 'in' ? '+' : '-';
         
@@ -3938,7 +4164,7 @@ function renderReportsPane() {
       shiftBody.innerHTML = `
         <tr>
           <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">
-            á€„á€½á€±á€€á€­á€¯á€„á€ºá€†á€­á€¯á€„á€ºá€¸á€•á€­á€á€ºá€™á€¾á€á€ºá€á€™á€ºá€¸á€™á€»á€¬á€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«
+            No register shift history found.
           </td>
         </tr>
       `;
@@ -3951,10 +4177,10 @@ function renderReportsPane() {
         let diffText = formatPrice(s.difference);
         if (s.difference > 0) {
           diffColor = 'var(--accent-success)';
-          diffText = `+${diffText} (á€•á€­á€¯)`;
+          diffText = `+${diffText} (Over)`;
         } else if (s.difference < 0) {
           diffColor = 'var(--accent-danger)';
-          diffText = `-${formatPrice(Math.abs(s.difference))} (á€œá€­á€¯)`;
+          diffText = `-${formatPrice(Math.abs(s.difference))} (Short)`;
         }
         
         return `
@@ -4134,11 +4360,12 @@ function renderSettingsPane() {
 }
 
 function handleSettingsSubmit() {
-  const name = document.getElementById('setRestName').value;
-  const tax = parseInt(document.getElementById('setTaxRate').value) || 0;
-  const curr = document.getElementById('setCurrency').value;
-  const printer = document.getElementById('setPrinterName').value;
-  const drinksPrinter = document.getElementById('setDrinksPrinterName').value;
+  const name = document.getElementById('setRestName')?.value?.trim() || state.settings.restaurantName || 'Pandora POS';
+  const taxInput = document.getElementById('setTaxRate');
+  const tax = taxInput ? (parseInt(taxInput.value) || 0) : (state.settings.taxRate || 0);
+  const curr = document.getElementById('setCurrency')?.value?.trim() || state.settings.currency || 'MMK';
+  const printer = document.getElementById('setPrinterName')?.value || state.settings.printerName || 'POS-80 Kitchen Printer';
+  const drinksPrinter = document.getElementById('setDrinksPrinterName')?.value || state.settings.drinksPrinterName || 'POS-80 Drinks Printer (Simulated)';
   
   state.settings.restaurantName = name;
   state.settings.brandLogoDataUrl = document.getElementById('setBrandLogoDataUrl')?.value || '';
@@ -4146,11 +4373,12 @@ function handleSettingsSubmit() {
   state.settings.currency = curr;
   state.settings.printerName = printer;
   state.settings.drinksPrinterName = drinksPrinter;
+  state.settings.printerCutPaper = document.getElementById('setPrinterCutPaper')?.checked === true;
   state.settings.voucherTitle = document.getElementById('setVoucherTitle')?.value.trim() || name;
   state.settings.voucherAddress = document.getElementById('setVoucherAddress')?.value.trim() || '';
   state.settings.voucherPhone = document.getElementById('setVoucherPhone')?.value.trim() || '';
   state.settings.voucherFooter = document.getElementById('setVoucherFooter')?.value.trim() || '';
-  state.settings.voucherShowLogo = document.getElementById('setVoucherShowLogo')?.checked !== false;
+  state.settings.voucherShowLogo = false;
   state.settings.voucherPaperSize = document.getElementById('setVoucherPaperSize')?.value || '80mm';
   
   const setEnableChatBot = document.getElementById('setEnableChatBot');
@@ -4189,6 +4417,7 @@ function handleBrandLogoUpload(event) {
     const preview = document.getElementById('setBrandLogoPreview');
     if (hiddenInput) hiddenInput.value = dataUrl;
     if (preview) preview.src = dataUrl;
+    renderVoucherSettingsPreview();
   };
   reader.onerror = () => {
     alert('Could not read the logo image. Please try another file.');
@@ -4203,6 +4432,7 @@ function removeBrandLogo() {
   if (fileInput) fileInput.value = '';
   if (hiddenInput) hiddenInput.value = '';
   if (preview) preview.src = 'logo.png';
+  renderVoucherSettingsPreview();
 }
 
 // Menu Items Edit Modals
@@ -5026,17 +5256,44 @@ function deleteCategory(catId) {
   }
 }
 // --- L. TABLE LAYOUT EDIT & DRAGGING LOGIC ---
+function toggleTableManageDropdown(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('tableManageDropdown');
+  if (!dropdown) return;
+  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+function closeTableManageDropdown() {
+  const dropdown = document.getElementById('tableManageDropdown');
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+function startTableLayoutManagement() {
+  if (!state.isTableLayoutEditing) {
+    toggleTableLayoutEdit();
+  }
+}
+
+function finishTableLayoutManagement() {
+  if (state.isTableLayoutEditing) {
+    toggleTableLayoutEdit();
+  } else {
+    saveState();
+    renderTablesFloorMap();
+  }
+}
+
 function toggleTableLayoutEdit() {
   state.isTableLayoutEditing = !state.isTableLayoutEditing;
   
   const btn = document.getElementById('toggleTableLayoutEditBtn');
   if (btn) {
     if (state.isTableLayoutEditing) {
-      btn.innerHTML = `<i class="fa-solid fa-check"></i> á€”á€±á€›á€¬á€•á€¼á€„á€ºá€†á€„á€ºá€™á€¾á€¯ á€•á€¼á€®á€¸á€•á€¼á€®`;
+      btn.innerHTML = `<i class="fa-solid fa-check"></i> Managing Tables`;
       btn.style.background = 'var(--accent-success)';
       btn.style.color = 'white';
     } else {
-      btn.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right"></i> á€”á€±á€›á€¬á€•á€¼á€„á€ºá€†á€„á€ºá€™á€Šá€º`;
+      btn.innerHTML = `<i class="fa-solid fa-sliders"></i> Manage Table`;
       btn.style.background = 'rgba(255,255,255,0.08)';
       btn.style.color = 'var(--text-primary)';
     }
@@ -5256,7 +5513,7 @@ function makeTableDraggable(el, tableId) {
 }
 
 function openAddTableModal() {
-  document.getElementById('tableModalTitle').textContent = 'á€…á€¬á€¸á€•á€½á€²á€¡á€žá€…á€ºá€‘á€Šá€·á€ºá€›á€”á€º';
+  document.getElementById('tableModalTitle').textContent = 'Add Table';
   document.getElementById('editTableId').value = '';
   document.getElementById('tableAddEditForm').reset();
   
@@ -5270,7 +5527,7 @@ function openEditTableModal(tableId) {
   const t = state.tables.find(item => item.id === tableId);
   if (!t) return;
   
-  document.getElementById('tableModalTitle').textContent = 'á€…á€¬á€¸á€•á€½á€² á€•á€¼á€„á€ºá€†á€„á€ºá€›á€”á€º';
+  document.getElementById('tableModalTitle').textContent = 'Edit Table';
   document.getElementById('editTableId').value = t.id;
   document.getElementById('tableNameInput').value = t.name;
   document.getElementById('tableSeatsInput').value = t.seats;
@@ -5323,6 +5580,7 @@ function handleTableAddEditSubmit() {
       id: nextId,
       name: name,
       seats: seats,
+      floor: state.activeFloorId || 'main',
       status: 'available',
       activeOrderId: null,
       x: 20,
@@ -5345,7 +5603,7 @@ function deleteTable(tableId) {
     return;
   }
   
-  if (confirm(`á€…á€¬á€¸á€•á€½á€² "${table.name}" á€€á€­á€¯ á€¡á€•á€¼á€®á€¸á€á€­á€¯á€„á€º á€–á€»á€€á€ºá€•á€…á€ºá€•á€«á€™á€Šá€ºá€œá€¬á€¸?`)) {
+  if (confirm(`Delete "${table.name}" permanently?`)) {
     state.tables = state.tables.filter(t => t.id !== tableId);
     saveState();
     renderTablesFloorMap();
@@ -5645,21 +5903,10 @@ function updateSettingsPaneUI() {
       : `<i class="fa-solid fa-moon"></i> Dark Mode`;
   }
   
-  const langSelect = document.getElementById('settingLanguageSelect');
-  if (langSelect) {
-    langSelect.value = state.settings.language || 'my';
-  }
 }
 
 function initLanguageSetting() {
-  const langSelect = document.getElementById('settingLanguageSelect');
-  if (langSelect) {
-    langSelect.addEventListener('change', (e) => {
-      state.settings.language = e.target.value;
-      saveState();
-      alert(state.settings.language === 'en' ? "Language changed to English!" : "á€˜á€¬á€žá€¬á€…á€€á€¬á€¸á€€á€­á€¯ á€™á€¼á€”á€ºá€™á€¬á€žá€­á€¯á€· á€•á€¼á€±á€¬á€„á€ºá€¸á€œá€²á€œá€­á€¯á€€á€ºá€•á€«á€•á€¼á€®!");
-    });
-  }
+  // Language switching was removed from the product UI.
 }
 
 // --- L. STORAGE EVENT REAL-TIME SYNC ---
@@ -5776,12 +6023,13 @@ function renderActiveOrdersList() {
     const activeOrders = state.orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
     
     if (activeOrders.length === 0) {
-      html = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">á€œá€€á€ºá€›á€¾á€­ á€œá€¯á€•á€ºá€†á€±á€¬á€„á€ºá€”á€±á€žá€±á€¬ á€¡á€±á€¬á€ºá€’á€«á€™á€»á€¬á€¸ á€™á€›á€¾á€­á€•á€«</div>`;
+      html = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">No ongoing orders yet. Confirm Order or Send Kitchen will keep unpaid orders here.</div>`;
     } else {
       html = activeOrders.map(o => {
-        const typeLabel = o.type === 'takeaway' ? '<i class="fa-solid fa-basket-shopping"></i> á€•á€«á€†á€šá€º (Takeaway)' : `<i class="fa-solid fa-chair"></i> á€…á€¬á€¸á€•á€½á€² - ${o.tableName}`;
+        const typeLabel = o.type === 'takeaway' ? '<i class="fa-solid fa-basket-shopping"></i> Takeaway' : `<i class="fa-solid fa-chair"></i> Table - ${escapeHtml(o.tableName || '')}`;
         const elapsedMinutes = Math.round((new Date() - new Date(o.timestamp)) / 60000);
         const timeDisplay = isNaN(elapsedMinutes) ? '0 mins ago' : `${elapsedMinutes} mins ago`;
+        const orderId = escapeJsString(o.id);
         
         let statusBadge = '';
         if (o.status === 'occupied') statusBadge = `<span class="expense-tag" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); border-color: var(--accent-danger); font-size: 0.72rem;">Occupied</span>`;
@@ -5793,20 +6041,20 @@ function renderActiveOrdersList() {
         let adminActionHtml = '';
         if (state.currentUser && state.currentUser.role === 'admin') {
           adminActionHtml = `
-            <button type="button" class="btn-primary" onclick="cancelActiveOrderDirectly('${o.id}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-danger); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+            <button type="button" class="btn-primary" onclick="event.stopPropagation(); cancelActiveOrderDirectly('${orderId}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-danger); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
               <i class="fa-solid fa-trash-can"></i> Cancel
             </button>
           `;
         }
 
         return `
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); gap: 10px;">
+          <div class="order-list-card-clickable" onclick="openOrderDetailModal('${orderId}', 'active')" title="View order detail" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); gap: 10px;">
             <div>
               <h4 style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">${typeLabel} ${statusBadge}</h4>
-              <p style="font-size: 0.8rem; color: var(--text-secondary);">á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸: <strong style="color:var(--accent-success);">${formatPrice(o.total)}</strong> | Items: ${o.items.reduce((sum, i) => sum + i.quantity, 0)} á€•á€½á€² | ${timeDisplay}</p>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Total: <strong style="color:var(--accent-success);">${formatPrice(o.total)}</strong> | Items: ${o.items.reduce((sum, i) => sum + i.quantity, 0)} | ${timeDisplay}</p>
             </div>
             <div style="display: flex; gap: 6px;">
-              <button class="btn-primary" onclick="recallActiveOrder('${o.id}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-brand-blue); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+              <button class="btn-primary" onclick="event.stopPropagation(); recallActiveOrder('${orderId}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-brand-blue); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-folder-open"></i> Recall
               </button>
               ${adminActionHtml}
@@ -5820,28 +6068,29 @@ function renderActiveOrdersList() {
     const paidSales = [...state.salesHistory].reverse().slice(0, 50);
     
     if (paidSales.length === 0) {
-      html = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">á€„á€½á€±á€›á€¾á€„á€ºá€¸á€•á€¼á€®á€¸á€žá€±á€¬ á€¡á€±á€¬á€ºá€’á€«á€…á€¬á€›á€„á€ºá€¸ á€™á€›á€¾á€­á€•á€«</div>`;
+      html = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">No paid sales yet.</div>`;
     } else {
       html = paidSales.map(s => {
-        const typeLabel = s.type === 'takeaway' ? '<i class="fa-solid fa-basket-shopping"></i> á€•á€«á€†á€šá€º (Takeaway)' : `<i class="fa-solid fa-chair"></i> á€…á€¬á€¸á€•á€½á€² - ${s.tableName}`;
+        const typeLabel = s.type === 'takeaway' ? '<i class="fa-solid fa-basket-shopping"></i> Takeaway' : `<i class="fa-solid fa-chair"></i> Table - ${escapeHtml(s.tableName || '')}`;
         const timeStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
         const dateStr = s.timestamp ? getLocalDateString(s.timestamp) : '';
         const itemsCount = s.items ? s.items.reduce((sum, i) => sum + i.quantity, 0) : 0;
+        const saleId = escapeJsString(s.id);
         
         let adminActionHtml = '';
         if (state.currentUser && state.currentUser.role === 'admin') {
           adminActionHtml = `
-            <button type="button" class="btn-primary" onclick="deleteCompletedSaleDirectly('${s.id}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-danger); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+            <button type="button" class="btn-primary" onclick="event.stopPropagation(); deleteCompletedSaleDirectly('${saleId}')" style="font-size: 0.8rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: none; background: var(--accent-danger); color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 4px;">
               <i class="fa-solid fa-trash-can"></i> Delete
             </button>
           `;
         }
 
         return `
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); gap: 10px;">
+          <div class="order-list-card-clickable" onclick="openOrderDetailModal('${saleId}', 'sale')" title="View voucher detail" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: var(--border-radius-md); gap: 10px;">
             <div>
               <h4 style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">${typeLabel} <span class="expense-tag" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success); border-color: var(--accent-success); font-size: 0.72rem;">Paid</span></h4>
-              <p style="font-size: 0.8rem; color: var(--text-secondary);">á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸: <strong style="color:var(--accent-success);">${formatPrice(s.total)}</strong> | Items: ${itemsCount} á€•á€½á€² | ${dateStr} ${timeStr}</p>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Total: <strong style="color:var(--accent-success);">${formatPrice(s.total)}</strong> | Items: ${itemsCount} | ${dateStr} ${timeStr}</p>
             </div>
             <div>
               ${adminActionHtml}
@@ -5897,6 +6146,123 @@ function closeActiveOrdersModal() {
   if (modal) modal.classList.remove('active');
 }
 
+let currentOrderDetailRef = null;
+
+function openOrderDetailModal(recordId, recordType = 'sale') {
+  const record = recordType === 'active'
+    ? state.orders.find(o => o.id === recordId)
+    : state.salesHistory.find(s => s.id === recordId);
+
+  if (!record) {
+    alert('Order record not found.');
+    return;
+  }
+
+  currentOrderDetailRef = { id: recordId, type: recordType };
+
+  const overlay = document.getElementById('orderDetailModalOverlay');
+  const title = document.getElementById('orderDetailModalTitle');
+  const subtitle = document.getElementById('orderDetailModalSubtitle');
+  const body = document.getElementById('orderDetailModalBody');
+  const printBtn = document.getElementById('orderDetailPrintBtn');
+  if (!overlay || !body) return;
+
+  const isSale = recordType === 'sale';
+  const items = Array.isArray(record.items) ? record.items : [];
+  const itemTotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+  const subtotal = Number(record.subtotal ?? itemTotal) || 0;
+  const discount = Number(record.discountAmount ?? record.discount ?? 0) || 0;
+  const tax = Number(record.taxAmount ?? record.tax ?? 0) || 0;
+  const total = Number(record.total ?? (subtotal - discount + tax)) || 0;
+  const tableLabel = record.type === 'takeaway' ? 'Takeaway' : displayText(record.tableName, 'Table');
+  const statusLabel = isSale ? 'Paid' : displayText(record.status || 'Ongoing', 'Ongoing');
+
+  if (title) title.textContent = isSale ? `Voucher Detail - ${record.id}` : `Order Detail - ${record.id}`;
+  if (subtitle) subtitle.textContent = `${tableLabel} | ${formatOrderDetailDate(record.timestamp)}`;
+
+  const itemRows = items.map(item => {
+    const qty = Number(item.quantity || item.qty || 1);
+    const price = Number(item.price || 0);
+    const lineTotal = qty * price;
+    return `
+      <div class="order-detail-item-row">
+        <div class="order-detail-item-info">
+          <div class="order-detail-item-name">${escapeHtml(displayText(item.name, 'Item'))}</div>
+          ${item.note ? `<div class="order-detail-item-note">Note: ${escapeHtml(displayText(item.note, ''))}</div>` : ''}
+        </div>
+        <div class="order-detail-item-meta">
+          <span>${qty} x ${formatPrice(price)}</span>
+          <strong>${formatPrice(lineTotal)}</strong>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="order-detail-summary-grid">
+      <div class="order-detail-summary-box">
+        <span>Order ID</span>
+        <strong>${escapeHtml(record.id || '-')}</strong>
+      </div>
+      <div class="order-detail-summary-box">
+        <span>Table / Type</span>
+        <strong>${escapeHtml(tableLabel)}</strong>
+      </div>
+      <div class="order-detail-summary-box">
+        <span>Status</span>
+        <strong>${escapeHtml(statusLabel)}</strong>
+      </div>
+      <div class="order-detail-summary-box">
+        <span>Payment</span>
+        <strong>${escapeHtml(isSale ? (record.paymentMethod || 'Cash') : 'Not paid')}</strong>
+      </div>
+    </div>
+
+    <div class="order-detail-section-title">Included Items</div>
+    <div class="order-detail-items-list">
+      ${itemRows || '<div class="order-detail-empty">No items in this record.</div>'}
+    </div>
+
+    <div class="order-detail-total-box">
+      <div><span>Subtotal</span><strong>${formatPrice(subtotal)}</strong></div>
+      <div><span>Discount</span><strong>${formatPrice(discount)}</strong></div>
+      <div><span>Tax</span><strong>${formatPrice(tax)}</strong></div>
+      <div class="grand-total"><span>Total</span><strong>${formatPrice(total)}</strong></div>
+    </div>
+  `;
+
+  if (printBtn) {
+    printBtn.innerHTML = isSale ? '<i class="fa-solid fa-print"></i> Print Voucher' : '<i class="fa-solid fa-print"></i> Print Kitchen';
+  }
+
+  overlay.classList.add('active');
+}
+
+function closeOrderDetailModal() {
+  const overlay = document.getElementById('orderDetailModalOverlay');
+  if (overlay) overlay.classList.remove('active');
+  currentOrderDetailRef = null;
+}
+
+function printOrderDetailRecord() {
+  if (!currentOrderDetailRef) return;
+  const record = currentOrderDetailRef.type === 'active'
+    ? state.orders.find(o => o.id === currentOrderDetailRef.id)
+    : state.salesHistory.find(s => s.id === currentOrderDetailRef.id);
+  if (!record) {
+    alert('Order record not found.');
+    return;
+  }
+  showPrinterSlipModal(record, currentOrderDetailRef.type === 'active' ? 'kitchen' : 'customer');
+}
+
+function formatOrderDetailDate(timestamp) {
+  if (!timestamp) return '-';
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '-';
+  return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function recallActiveOrder(orderId) {
   const order = state.orders.find(o => o.id === orderId);
   if (!order) return;
@@ -5910,6 +6276,8 @@ function recallActiveOrder(orderId) {
     // Takeaway recall
     state.currentCart.tableId = null;
     state.currentCart.type = 'takeaway';
+    state.currentCart.activeOrderId = order.id;
+    state.currentCart.draftOrderId = order.id;
     state.currentCart.items = order.items.map(item => ({
       id: item.id,
       cartKey: item.cartKey || item.id,
@@ -5919,6 +6287,13 @@ function recallActiveOrder(orderId) {
       note: item.note || '',
       track_inventory: state.products.find(p => p.id === item.id)?.track_inventory || false
     }));
+    state.currentCart.subtotal = order.subtotal || 0;
+    state.currentCart.discount = order.discount || 0;
+    state.currentCart.tax = order.tax || 0;
+    state.currentCart.total = order.total || 0;
+    state.currentCart.memberId = order.memberId || null;
+    state.currentCart.selectedTaxPresetId = order.selectedTaxPresetId || 'tax-none';
+    state.currentCart.selectedDiscountPresetId = order.selectedDiscountPresetId || 'disc-none';
     
     saveState();
     renderSalesCounter();
@@ -6122,6 +6497,9 @@ function deletePreset(type, id) {
 
 function closeRestaurantConfigModal() {
   const modal = document.getElementById('restaurantConfigModalOverlay');
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   if (modal) modal.classList.remove('active');
 }
 
@@ -6648,6 +7026,44 @@ function escapeHtml(text) {
     .replace(/'/g, "&#039;");
 }
 
+function escapeJsString(text) {
+  return String(text ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, ' ');
+}
+
+function repairMojibakeText(text) {
+  if (typeof text !== 'string' || !/[áÁâðï]/.test(text)) return text;
+
+  const win1252 = {
+    0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84,
+    0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88,
+    0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C,
+    0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93,
+    0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+    0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B,
+    0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F
+  };
+
+  try {
+    const bytes = Array.from(text, char => {
+      const code = char.codePointAt(0);
+      if (code <= 0xff) return code;
+      return win1252[code] ?? 0x3f;
+    });
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
+    return decoded && !/[áÁâðï]/.test(decoded) ? decoded : text;
+  } catch (err) {
+    return text;
+  }
+}
+
+function displayText(text, fallback = '') {
+  const value = text == null || text === '' ? fallback : String(text);
+  return repairMojibakeText(value);
+}
+
 // 1. Dropdown toggle
 function toggleRegisterDropdown(event) {
   event.stopPropagation();
@@ -6698,7 +7114,7 @@ function submitOpenRegister() {
     regLabel.innerHTML = `<i class="fa-solid fa-door-closed" style="color: var(--accent-danger); width: 16px;"></i> Close Register`;
   }
   
-  alert(`Register á€…á€á€„á€ºá€–á€½á€„á€·á€ºá€œá€¾á€…á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®á‹ á€…á€á€„á€ºá€„á€½á€±á€žá€¬á€¸: ${formatPrice(cashAmount)}`);
+  alert(`Register opened. Opening cash: ${formatPrice(cashAmount)}`);
 }
 
 // 3. Cash In / Out transactions
@@ -6756,10 +7172,10 @@ function submitCashInOut() {
   
   if (type === 'in') {
     state.register.cashIn.push(transaction);
-    alert(`${method} In (á€„á€½á€±á€žá€½á€„á€ºá€¸) á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«á€žá€Šá€º: ${formatPrice(amount)}`);
+    alert(`${method} In saved: ${formatPrice(amount)}`);
   } else {
     state.register.cashOut.push(transaction);
-    alert(`${method} Out (á€„á€½á€±á€‘á€¯á€á€º) á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«á€žá€Šá€º: ${formatPrice(amount)}`);
+    alert(`${method} Out saved: ${formatPrice(amount)}`);
   }
   
   state.transactionHistory = state.transactionHistory || [];
@@ -6857,7 +7273,7 @@ function generateDailySaleReport() {
   if (mobileInTransactions.length > 0 || mobileOutTransactions.length > 0) {
     mobileTransHtml = `
       <hr style="border: 0; border-top: 1px dashed #000000; margin: 10px 0;">
-      <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">4. BANKING / MOBILE IN-OUT (á€˜á€á€º/á€™á€­á€¯á€˜á€­á€¯á€„á€ºá€¸á€œá€º á€„á€½á€±á€žá€½á€„á€ºá€¸á€„á€½á€±á€‘á€¯á€á€º)</h4>
+      <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">4. BANKING / MOBILE IN-OUT</h4>
       <table style="width:100%; font-size:0.8rem; text-align:left; border-collapse:collapse; margin-bottom:10px;">
         <thead>
           <tr style="border-bottom:1px solid #000;">
@@ -6873,7 +7289,7 @@ function generateDailySaleReport() {
     mobileInTransactions.forEach(t => {
       mobileTransHtml += `
         <tr>
-          <td style="padding:4px; color:#000;">In (á€„á€½á€±á€žá€½á€„á€ºá€¸)</td>
+          <td style="padding:4px; color:#000;">In</td>
           <td style="padding:4px; color:#000;">${escapeHtml(t.method)}</td>
           <td style="padding:4px; color:#000;">${escapeHtml(t.note)}</td>
           <td style="padding:4px; text-align:right; color: green; font-weight: bold;">+${formatPrice(t.amount)}</td>
@@ -6884,7 +7300,7 @@ function generateDailySaleReport() {
     mobileOutTransactions.forEach(t => {
       mobileTransHtml += `
         <tr>
-          <td style="padding:4px; color:#000;">Out (á€„á€½á€±á€‘á€¯á€á€º)</td>
+          <td style="padding:4px; color:#000;">Out</td>
           <td style="padding:4px; color:#000;">${escapeHtml(t.method)}</td>
           <td style="padding:4px; color:#000;">${escapeHtml(t.note)}</td>
           <td style="padding:4px; text-align:right; color: red; font-weight: bold;">-${formatPrice(t.amount)}</td>
@@ -6912,11 +7328,11 @@ function generateDailySaleReport() {
     
     <hr style="border: 0; border-top: 1px dashed #000000; margin: 10px 0;">
     
-    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">1. CASH SALES (á€„á€½á€±á€žá€¬á€¸á€¡á€›á€±á€¬á€„á€ºá€¸á€™á€»á€¬á€¸)</h4>
+    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">1. CASH SALES</h4>
   `;
   
   if (cashSales.length === 0) {
-    html += `<div style="font-size: 0.82rem; margin-bottom: 10px; color: #000000;">-- á€„á€½á€±á€žá€¬á€¸á€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€± á€™á€›á€¾á€­á€•á€« --</div>`;
+    html += `<div style="font-size: 0.82rem; margin-bottom: 10px; color: #000000;">-- No cash sales --</div>`;
   } else {
     html += `<table style="width:100%; font-size:0.8rem; text-align:left; border-collapse:collapse; margin-bottom:10px;">
       <thead>
@@ -6938,7 +7354,7 @@ function generateDailySaleReport() {
     });
     html += `
       <tr style="border-top:1px dashed #000; font-weight:bold;">
-        <td colspan="2" style="padding:4px; color:#000;">á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸ á€„á€½á€±á€žá€¬á€¸á€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€±:</td>
+        <td colspan="2" style="padding:4px; color:#000;">Total Cash Sales:</td>
         <td style="padding:4px; text-align:right; color:#000;">${formatPrice(totalCashSales)}</td>
       </tr>
       </tbody>
@@ -6947,11 +7363,11 @@ function generateDailySaleReport() {
   
   html += `
     <hr style="border: 0; border-top: 1px dashed #000000; margin: 10px 0;">
-    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">2. MOBILE / MOBILE PAY SALES (á€™á€­á€¯á€˜á€­á€¯á€„á€ºá€¸á€œá€ºá€¡á€›á€±á€¬á€„á€ºá€¸á€™á€»á€¬á€¸)</h4>
+    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">2. MOBILE / MOBILE PAY SALES</h4>
   `;
   
   if (mobileSales.length === 0) {
-    html += `<div style="font-size: 0.82rem; margin-bottom: 10px; color: #000000;">-- á€™á€­á€¯á€˜á€­á€¯á€„á€ºá€¸á€œá€ºá€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€± á€™á€›á€¾á€­á€•á€« --</div>`;
+    html += `<div style="font-size: 0.82rem; margin-bottom: 10px; color: #000000;">-- No mobile pay sales --</div>`;
   } else {
     html += `<table style="width:100%; font-size:0.8rem; text-align:left; border-collapse:collapse; margin-bottom:10px;">
       <thead>
@@ -6973,7 +7389,7 @@ function generateDailySaleReport() {
     });
     html += `
       <tr style="border-top:1px dashed #000; font-weight:bold;">
-        <td colspan="2" style="padding:4px; color:#000;">á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸ á€™á€­á€¯á€˜á€­á€¯á€„á€ºá€¸á€œá€ºá€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€±:</td>
+        <td colspan="2" style="padding:4px; color:#000;">Total Mobile Pay Sales:</td>
         <td style="padding:4px; text-align:right; color:#000;">${formatPrice(totalMobileSales)}</td>
       </tr>
       </tbody>
@@ -6982,26 +7398,26 @@ function generateDailySaleReport() {
   
   html += `
     <hr style="border: 0; border-top: 1px dashed #000000; margin: 10px 0;">
-    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">3. CASH FLOW SUMMARY (á€„á€½á€±á€žá€¬á€¸á€…á€¬á€›á€„á€ºá€¸á€á€»á€¯á€•á€º)</h4>
+    <h4 style="margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem; text-decoration: underline; color: #000000;">3. CASH FLOW SUMMARY</h4>
     <table style="width:100%; font-size:0.85rem; border-collapse:collapse; margin-top:5px; color: #000000;">
       <tr>
-        <td style="padding:4px; color:#000;">(+) Opening Cash (á€†á€­á€¯á€„á€ºá€–á€½á€„á€·á€ºá€„á€½á€±á€žá€¬á€¸):</td>
+        <td style="padding:4px; color:#000;">(+) Opening Cash:</td>
         <td style="padding:4px; text-align:right; color:#000;">${formatPrice(reg.openingCash)}</td>
       </tr>
       <tr>
-        <td style="padding:4px; color:#000;">(+) Cash Sales (á€„á€½á€±á€žá€¬á€¸á€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€±):</td>
+        <td style="padding:4px; color:#000;">(+) Cash Sales:</td>
         <td style="padding:4px; text-align:right; color:#000;">${formatPrice(totalCashSales)}</td>
       </tr>
       <tr>
-        <td style="padding:4px; color:#000;">(+) Cash In (á€žá€½á€„á€ºá€¸á€„á€½á€±á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸):</td>
+        <td style="padding:4px; color:#000;">(+) Cash In:</td>
         <td style="padding:4px; text-align:right; color:#000; font-weight:bold;">+${formatPrice(totalCashIn)}</td>
       </tr>
       <tr style="border-bottom: 1px solid #000;">
-        <td style="padding:4px; color:#000;">(-) Cash Out (á€‘á€¯á€á€ºá€„á€½á€±á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸):</td>
+        <td style="padding:4px; color:#000;">(-) Cash Out:</td>
         <td style="padding:4px; text-align:right; color:#000; font-weight:bold;">-${formatPrice(totalCashOut)}</td>
       </tr>
       <tr style="font-weight:bold; font-size:0.92rem; background:rgba(0,0,0,0.05);">
-        <td style="padding:4px; color:#000;">(=) Expected Cash (á€¡á€­á€á€ºá€‘á€²á€›á€¾á€­á€›á€™á€Šá€·á€º á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸á€„á€½á€±á€žá€¬á€¸):</td>
+        <td style="padding:4px; color:#000;">(=) Expected Cash:</td>
         <td style="padding:4px; text-align:right; color:#000;">${formatPrice(expectedCash)}</td>
       </tr>
     </table>
@@ -7009,7 +7425,7 @@ function generateDailySaleReport() {
     ${mobileTransHtml}
     
     <div style="margin-top: 25px; border-top: 1px dashed #000; padding-top: 10px; font-size: 0.85rem; color: #000000;">
-      <div>á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸ á€á€”á€±á€·á€á€¬á€›á€±á€¬á€„á€ºá€¸á€›á€„á€½á€± (Cash + Mobile) = <b>${formatPrice(totalCashSales + totalMobileSales)}</b></div>
+      <div>Total Sales (Cash + Mobile) = <b>${formatPrice(totalCashSales + totalMobileSales)}</b></div>
     </div>
   `;
   
@@ -7025,13 +7441,13 @@ function updateCloseRegisterDiff() {
   const difference = actualCash - _currentExpectedCash;
   
   if (difference === 0) {
-    diffLabel.textContent = '0 MMK (á€á€Šá€·á€ºá€á€Šá€·á€º)';
+    diffLabel.textContent = '0 MMK (Balanced)';
     diffLabel.style.color = 'var(--text-muted)';
   } else if (difference > 0) {
-    diffLabel.textContent = `+${formatPrice(difference)} MMK (á€•á€­á€¯á€”á€±á€žá€Šá€º)`;
+    diffLabel.textContent = `+${formatPrice(difference)} MMK (Over)`;
     diffLabel.style.color = 'var(--accent-success)';
   } else {
-    diffLabel.textContent = `-${formatPrice(Math.abs(difference))} MMK (á€œá€­á€¯á€”á€±á€žá€Šá€º)`;
+    diffLabel.textContent = `-${formatPrice(Math.abs(difference))} MMK (Short)`;
     diffLabel.style.color = 'var(--accent-danger)';
   }
 }
@@ -7080,7 +7496,7 @@ function finalizeRegisterClose() {
   // Force Open Register overlay again for next shift
   checkLoginSession();
   
-  alert(`Register á€…á€¬á€›á€„á€ºá€¸á€á€»á€¯á€•á€ºá€•á€¼á€®á€¸ á€†á€­á€¯á€„á€ºá€•á€­á€á€ºá€žá€­á€™á€ºá€¸á€™á€¾á€¯ á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«á€žá€Šá€º!\n\nExpected: ${formatPrice(_currentExpectedCash)} MMK\nActual: ${formatPrice(actualCash)} MMK\nDifference: ${formatPrice(difference)} MMK`);
+  alert(`Register closed successfully.\n\nExpected: ${formatPrice(_currentExpectedCash)} MMK\nActual: ${formatPrice(actualCash)} MMK\nDifference: ${formatPrice(difference)} MMK`);
 }
 
 
@@ -7496,7 +7912,7 @@ function generateQrCodeForType() {
   if (!qrContainer) return;
   
   const targetUrl = window.location.origin + window.location.pathname + '#menu';
-  const modeLabel = 'Customer á€–á€¯á€”á€ºá€¸á€–á€¼á€„á€·á€º á€¤ QR Code á€€á€­á€¯ Scan á€–á€á€ºá€€á€¬ á€†á€­á€¯á€„á€ºá á€Ÿá€„á€ºá€¸á€•á€½á€²á€…á€¬á€›á€„á€ºá€¸ (Digital Menu) á€€á€­á€¯ á€€á€¼á€Šá€·á€ºá€›á€¾á€¯á€”á€­á€¯á€„á€ºá€•á€«á€žá€Šá€ºá‹';
+  const modeLabel = 'Customers can scan this QR code to view the shop digital menu.';
   
   // Render Dynamic Scanable QR Code using dynamic qrserver api
   qrContainer.innerHTML = `
@@ -7525,14 +7941,27 @@ function closeQrSimulatorModal() {
   if (overlay) overlay.classList.remove('active');
 }
 
+function getMenuCategoryColor(categoryId) {
+  const category = state.categories.find(c => c.id === categoryId);
+  return (category && category.color) ? category.color : '#0b57a4';
+}
+
+function getMenuProductVisual(product) {
+  const color = product.color || getMenuCategoryColor(product.categoryId);
+  if (product.image) {
+    return `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name || 'Menu item')}">`;
+  }
+
+  return `
+    <div class="digital-menu-fallback-art" style="background: linear-gradient(135deg, ${color}, rgba(15, 23, 42, 0.86));">
+      <i class="fa-solid fa-bowl-food"></i>
+    </div>
+  `;
+}
+
 function renderSelfOrderPortal(tableId) {
   const container = document.getElementById('selfOrderPortalContainer');
   if (!container) return;
-  
-  // Dynamic Background and Text color for self-order digital menu portal container
-  const isDarkTheme = !!state.settings.darkMode;
-  container.style.background = isDarkTheme ? '#0f172a' : '#f8fafc';
-  container.style.color = isDarkTheme ? '#f8fafc' : '#0a1931';
   
   const isReadOnlyMenu = true; // Always read-only menu
   
@@ -7543,17 +7972,14 @@ function renderSelfOrderPortal(tableId) {
   const table = isReadOnlyMenu ? null : state.tables.find(t => t.id === tableId);
   const tableName = isReadOnlyMenu ? 'Digital Menu' : (table ? table.name : `Table ${tableId}`);
   
-  // Sync Dark/Light theme attribute
-  document.documentElement.setAttribute('data-theme', state.settings.darkMode ? 'dark' : 'light');
-  
   // Build category list
   const activeCat = selfOrderCart.activeCategory || 'ALL';
   const categoryButtons = `
-    <button class="pos-mode-btn ${activeCat === 'ALL' ? 'active' : ''}" onclick="switchSelfOrderCategory('ALL')" style="padding: 8px 16px; font-size: 0.82rem; font-weight: bold; border-radius: 20px; white-space: nowrap; border: none; cursor: pointer;">
+    <button class="digital-menu-chip ${activeCat === 'ALL' ? 'active' : ''}" onclick="switchSelfOrderCategory('ALL')">
       All Items
     </button>
     ` + state.categories.map(c => `
-      <button class="pos-mode-btn ${activeCat === c.id ? 'active' : ''}" onclick="switchSelfOrderCategory('${c.id}')" style="padding: 8px 16px; font-size: 0.82rem; font-weight: bold; border-radius: 20px; white-space: nowrap; border: none; cursor: pointer; background-color: ${activeCat === c.id ? '' : 'rgba(255,255,255,0.06)'};">
+      <button class="digital-menu-chip ${activeCat === c.id ? 'active' : ''}" onclick="switchSelfOrderCategory('${c.id}')" style="${activeCat === c.id ? `background:${c.color || '#0b57a4'};` : ''}">
         ${escapeHtml(c.name)}
       </button>
     `).join('');
@@ -7587,20 +8013,23 @@ function renderSelfOrderPortal(tableId) {
       }
     }
     
-    const isDark = !!state.settings.darkMode;
-    const cardBg = isDark ? '#1e293b' : '#ffffff';
-    const textPrimaryColor = isDark ? '#f8fafc' : '#0a1931';
-    const borderCol = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(11,87,164,0.15)';
+    const category = state.categories.find(c => c.id === p.categoryId);
+    const categoryName = category ? category.name : 'Menu';
+    const categoryColor = p.color || (category && category.color) || '#0b57a4';
     return `
-      <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: var(--border-radius-md); padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 15px; box-shadow: var(--shadow-sm);">
-        <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
-          <h4 style="margin: 0; font-size: 0.9rem; font-weight: bold; color: ${textPrimaryColor};">${escapeHtml(p.name)}</h4>
-          <span style="font-size: 0.8rem; font-weight: bold; color: var(--accent-primary);">${formatPrice(p.price)}</span>
+      <article class="digital-menu-card">
+        <div class="digital-menu-photo">
+          ${getMenuProductVisual(p)}
         </div>
-        <div>
-          ${actionArea}
+        <div class="digital-menu-card-body">
+          <h4>${escapeHtml(p.name)}</h4>
+          <div class="digital-menu-card-meta">
+            <span class="digital-menu-price">${formatPrice(p.price)}</span>
+            <span class="digital-menu-category-pill" style="background:${categoryColor};">${escapeHtml(categoryName)}</span>
+          </div>
+          ${actionArea ? `<div style="margin-top:10px;">${actionArea}</div>` : ''}
         </div>
-      </div>
+      </article>
     `;
   }).join('');
   
@@ -7613,56 +8042,54 @@ function renderSelfOrderPortal(tableId) {
     bottomBarHtml = `
       <div style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--panel-bg); border-top: 1px solid var(--panel-border); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 -8px 24px rgba(0,0,0,0.15); z-index: 100;">
         <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">á€›á€½á€±á€¸á€á€»á€šá€ºá€‘á€¬á€¸á€žá€Šá€·á€º á€á€”á€ºá€–á€­á€¯á€¸</span>
+          <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Selected total</span>
           <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">${formatPrice(subtotal)}</span>
         </div>
         <div style="background: rgba(11, 87, 164, 0.15); border: 1px solid var(--accent-brand-blue); border-radius: var(--border-radius-sm); color: var(--text-primary); padding: 8px 12px; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; max-width: 60%; line-height: 1.3;">
           <i class="fa-solid fa-info-circle" style="color: var(--accent-primary); font-size: 1rem;"></i>
-          <span>á€›á€½á€±á€¸á€á€»á€šá€ºá€‘á€¬á€¸á€žá€Šá€ºá€™á€»á€¬á€¸á€¡á€¬á€¸ á€á€”á€ºá€‘á€™á€ºá€¸á€¡á€¬á€¸á€•á€¼á€žá á€™á€¾á€¬á€šá€°á€•á€±á€¸á€•á€«á€›á€”á€ºá‹</span>
+          <span>Please show the selected items to staff to place the order.</span>
         </div>
       </div>
     `;
   }
   
   container.innerHTML = `
-    <!-- Top Branding Header -->
-    <div style="position: sticky; top: 0; background: var(--panel-bg); border-bottom: 1px solid var(--panel-border); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 90; box-shadow: var(--shadow-sm);">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <img src="logo.png" alt="Logo" style="height: 40px; border-radius: 4px; object-fit: contain; background: transparent;" onerror="this.style.display='none'">
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <h2 style="margin: 0; font-size: 1.15rem; font-weight: 900; color: var(--text-primary); letter-spacing: 0.5px;">${(state.settings && state.settings.restaurantName) ? state.settings.restaurantName : 'PANDORA POS'}</h2>
-          <span style="font-size: 0.78rem; font-weight: 700; color: var(--accent-primary); display: inline-flex; align-items: center; gap: 4px;">
-            <i class="fa-solid fa-circle" style="font-size: 0.5rem; color: var(--accent-success);"></i> QR Digital Menu (${tableName})
-          </span>
+    <div class="digital-menu-shell">
+      <div class="digital-menu-hero">
+        <div class="digital-menu-brand">
+          <img src="${escapeHtml(getBrandLogoSrc())}" alt="Logo" class="digital-menu-logo" onerror="this.src='logo.png'">
+          <div>
+            <h2 class="digital-menu-title">${escapeHtml((state.settings && state.settings.restaurantName) ? state.settings.restaurantName : 'Pandora POS')}</h2>
+            <div class="digital-menu-subtitle">
+              <i class="fa-solid fa-utensils"></i>
+              <span>Digital Menu</span>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <div style="display: flex; align-items: center; gap: 8px;">
-        ${(isReadOnlyMenu || state.currentUser) ? `
-          <button type="button" onclick="document.getElementById('selfOrderPortalContainer').style.display='none'; window.location.hash='';" style="background:rgba(255,255,255,0.06); border:1px solid var(--panel-border); width:34px; height:34px; border-radius:50%; cursor:pointer; color:var(--text-primary); display:flex; align-items:center; justify-content:center;" title="Close Menu">
+        <div class="digital-menu-hero-actions">
+          <button type="button" onclick="document.getElementById('selfOrderPortalContainer').style.display='none'; window.location.hash='';" class="digital-menu-icon-btn" title="Close Menu">
             <i class="fa-solid fa-xmark"></i>
           </button>
-        ` : ''}
-        <!-- Theme Switcher -->
-        <button type="button" onclick="toggleSelfOrderTheme()" style="background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; color: var(--text-primary); display: flex; align-items: center; justify-content: center;">
-          <i class="${state.settings.darkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}"></i>
-        </button>
+        </div>
       </div>
+
+      <div class="digital-menu-tabs">
+        ${categoryButtons}
+      </div>
+
+      <main class="digital-menu-content" style="padding-bottom:${(!isReadOnlyMenu && totalQty > 0) ? '90px' : '32px'};">
+        <div class="digital-menu-heading">
+          <div>
+            <h3>Menu</h3>
+            <p>Choose a category and browse today&apos;s dishes.</p>
+          </div>
+          <span style="color:#64748b; font-size:0.78rem; font-weight:850;">${filteredProducts.length} items</span>
+        </div>
+        ${productsHtml.length === 0 ? '<div class="digital-menu-empty"><i class="fa-solid fa-bowl-food" style="font-size:2rem; margin-bottom:10px; display:block;"></i>No menu items in this category yet.</div>' : `<div class="digital-menu-grid">${productsHtml}</div>`}
+      </main>
+
+      ${bottomBarHtml}
     </div>
-    
-    <!-- Scrolling Category list -->
-    <div style="display: flex; gap: 8px; overflow-x: auto; padding: 12px 20px; background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--panel-border); scrollbar-width: none;">
-      ${categoryButtons}
-    </div>
-    
-    <!-- Food Items grid list -->
-    <div style="padding: 20px 20px ${(!isReadOnlyMenu && totalQty > 0) ? '90px' : '20px'} 20px; display: flex; flex-direction: column; gap: 12px; max-width: 600px; margin: 0 auto;">
-      <h3 style="font-size: 0.95rem; font-weight: 800; color: var(--text-secondary); margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">á€Ÿá€„á€ºá€¸á€•á€½á€²á€”á€¾á€„á€·á€º á€¡á€á€»á€­á€¯á€›á€Šá€ºá€™á€»á€¬á€¸ (Menu list)</h3>
-      ${productsHtml.length === 0 ? '<div style="padding:30px; text-align:center; color:var(--text-muted);">á€¤á€€á€á€¹á€á€á€½á€„á€º á€Ÿá€„á€ºá€¸á€•á€½á€²á€™á€»á€¬á€¸á€™á€›á€¾á€­á€žá€±á€¸á€•á€«á‹</div>' : productsHtml}
-    </div>
-    
-    <!-- Bottom Floating Cart summary -->
-    ${bottomBarHtml}
   `;
 }
 
@@ -7782,12 +8209,12 @@ function submitSelfOrder() {
         <div style="width: 80px; height: 80px; background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);">
           <i class="fa-solid fa-circle-check"></i>
         </div>
-        <h2 style="margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--text-primary);">á€™á€¾á€¬á€šá€°á€™á€¾á€¯ á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«á€žá€Šá€º!</h2>
+        <h2 style="margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--text-primary);">Order sent successfully.</h2>
         <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary); max-width: 320px; line-height: 1.6;">
-          á€¡á€±á€¬á€ºá€’á€«á€€á€­á€¯ á€™á€®á€¸á€–á€­á€¯á€á€»á€±á€¬á€„á€º/á€¡á€¡á€±á€¸á€€á€±á€¬á€„á€ºá€á€¬á€žá€­á€¯á€· á€•á€­á€¯á€·á€†á€±á€¬á€„á€ºá€•á€¼á€®á€¸á€•á€«á€•á€¼á€®á‹ á€™á€€á€¼á€¬á€™á€® á€Ÿá€„á€ºá€¸á€•á€½á€²á€™á€»á€¬á€¸á€€á€­á€¯ á€œá€¬á€›á€±á€¬á€€á€ºá€•á€¼á€„á€ºá€†á€„á€ºá€•á€±á€¸á€•á€«á€™á€Šá€º á€á€„á€ºá€—á€»á€¬á‹
+          Your order has been sent to the kitchen. Staff will prepare it shortly.
         </p>
         <button type="button" onclick="renderSelfOrderPortal(${table.id})" style="margin-top: 15px; background: var(--accent-brand-blue); border: none; border-radius: var(--border-radius-sm); color: white; padding: 12px 30px; font-weight: 800; font-size: 0.88rem; cursor: pointer;">
-          á€‘á€•á€ºá€™á€¶ á€™á€¾á€¬á€šá€°á€›á€”á€º (Order More)
+          Order More
         </button>
       </div>
     `;

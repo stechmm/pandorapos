@@ -47,9 +47,11 @@ internal static class PandoraPosLauncher
         }
 
         MessageBox.Show(
-            "Pandora POS has started.\n\n" +
+            "Pandora POS has started with silent print mode.\n\n" +
             "Cashier PC: " + pcUrl + "\n" +
             "Phone/Tablet: " + phoneUrl + "\n\n" +
+            "Windows default printer should be Pandora XP-58.\n" +
+            "Keep Cut paper OFF unless the printer has an auto cutter.\n\n" +
             "Connect the phone/tablet to the same Wi-Fi and open the Phone/Tablet URL.\n" +
             "The Phone/Tablet URL has been copied to the clipboard.",
             "Pandora POS"
@@ -58,7 +60,7 @@ internal static class PandoraPosLauncher
 
     private static void StartServer(string appDir, string serverPath)
     {
-        string nodePath = FindNode();
+        string nodePath = FindNode(appDir);
         if (string.IsNullOrWhiteSpace(nodePath))
         {
             MessageBox.Show("Node.js was not found. Install Node.js 20 or newer to run Pandora POS.", "Pandora POS");
@@ -78,10 +80,11 @@ internal static class PandoraPosLauncher
         Process.Start(startInfo);
     }
 
-    private static string FindNode()
+    private static string FindNode(string appDir)
     {
         string[] candidates =
         {
+            Path.Combine(appDir, "node.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs", "node.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "nodejs", "node.exe")
         };
@@ -137,11 +140,37 @@ internal static class PandoraPosLauncher
 
     private static void OpenBrowser(string url)
     {
-        Process.Start(new ProcessStartInfo
+        string browserPath = FindKioskBrowser();
+        if (!string.IsNullOrWhiteSpace(browserPath))
         {
-            FileName = url,
-            UseShellExecute = true
-        });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = browserPath,
+                Arguments = "--kiosk-printing --new-window \"" + url + "\"",
+                UseShellExecute = false
+            });
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+    }
+
+    private static string FindKioskBrowser()
+    {
+        string[] candidates =
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "Edge", "Application", "msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "Edge", "Application", "msedge.exe")
+        };
+
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return null;
     }
 
     private static string[] GetLanAddresses()

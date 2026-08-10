@@ -26,6 +26,14 @@ Alternative:
 1. Double-click `Start Pandora POS.bat`.
 2. This starts the same local server and opens the browser.
 
+Silent print mode:
+
+1. Set the Windows default printer to `Pandora XP-58`.
+2. Keep `Cut paper after print` turned off in Pandora POS printer settings unless the printer has an auto cutter.
+3. Double-click `Start Pandora POS Silent Print.bat`.
+
+This opens Chrome/Edge with `--kiosk-printing`, so browser `window.print()` jobs go directly to the default printer without the print preview dialog.
+
 ## Phone / Tablet
 
 Connect the phone/tablet to the same Wi-Fi as the cashier PC.

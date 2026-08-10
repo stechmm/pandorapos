@@ -150,19 +150,14 @@
             <div class="stat-info">
               <h3>ယနေ့အရောင်း (Sales Today)</h3>
               <div class="stat-value" id="statTodaySales">0 MMK</div>
+              <div class="sales-payment-breakdown" id="dashboardSalesPaymentBreakdown">
+                <span>Cash 0</span>
+                <span>KPAY 0</span>
+                <span>MMQR 0</span>
+              </div>
             </div>
             <div class="stat-icon">
               <i class="fa-solid fa-money-bill-wave"></i>
-            </div>
-          </div>
-          
-          <div class="stat-card" onclick="showDashboardDetail('orders')" style="--card-color: var(--accent-success); --card-glow: var(--accent-success-glow); cursor: pointer;">
-            <div class="stat-info">
-              <h3>နေ့စဉ် အော်ဒါ (Orders)</h3>
-              <div class="stat-value" id="statTodayOrders">0</div>
-            </div>
-            <div class="stat-icon">
-              <i class="fa-solid fa-receipt"></i>
             </div>
           </div>
           
@@ -251,13 +246,32 @@
             <div id="posTableLayoutSubpane" style="display: block; width: 100%;">
               <div id="tableAdminActions" style="display: none; gap: 6px;"></div>
               <!-- Floor Switcher & New Order row -->
-              <div style="display: flex; align-items: center; margin-bottom: 10px; margin-top: 5px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; margin-top: 5px;">
                 <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: var(--border-radius-md);">
                   <button type="button" class="pos-mode-btn" id="floorNewOrderBtn" onclick="startNewOrderWithoutTable()" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth); background: var(--accent-danger) !important; color: #fff !important; border-color: var(--accent-danger) !important; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);">
                     <i class="fa-solid fa-circle-plus"></i> New Order
                   </button>
                   <button type="button" class="pos-mode-btn active" id="floorMainBtn" onclick="switchFloor('main')" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth);">Main Floor</button>
                   <button type="button" class="pos-mode-btn" id="floor2ndBtn" onclick="switchFloor('2nd')" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: none; cursor: pointer; transition: var(--transition-smooth);">2nd Floor</button>
+                </div>
+                <div id="tableManageActions" style="position: relative; margin-left: auto;">
+                  <button type="button" class="pos-mode-btn" id="toggleTableLayoutEditBtn" onclick="toggleTableManageDropdown(event)" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 700; border-radius: var(--border-radius-sm); border: 1px solid var(--panel-border); cursor: pointer; transition: var(--transition-smooth); background: var(--input-bg); color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-sliders"></i> Manage Table
+                  </button>
+                  <div id="tableManageDropdown" class="products-actions-dropdown" style="display: none; right: 0; top: 40px; min-width: 210px;">
+                    <button type="button" class="products-dropdown-action" onclick="openAddTableModal(); closeTableManageDropdown();">
+                      <i class="fa-solid fa-plus"></i> Add Table
+                    </button>
+                    <button type="button" class="products-dropdown-action" onclick="startTableLayoutManagement(); closeTableManageDropdown();">
+                      <i class="fa-solid fa-arrows-up-down-left-right"></i> Move Tables
+                    </button>
+                    <button type="button" class="products-dropdown-action" onclick="startTableLayoutManagement(); closeTableManageDropdown();">
+                      <i class="fa-solid fa-pen-to-square"></i> Rename / Delete
+                    </button>
+                    <button type="button" class="products-dropdown-action" onclick="finishTableLayoutManagement(); closeTableManageDropdown();">
+                      <i class="fa-solid fa-check"></i> Save Layout
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -739,21 +753,7 @@
             </h3>
             
             <div style="display: flex; flex-direction: column; gap: 20px;">
-              <!-- 1. Language -->
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-                <div>
-                  <h4 style="font-weight: 600; margin: 0;">System Language (စနစ်သုံးဘာသာစကား)</h4>
-                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">Choose the interface language.</p>
-                </div>
-                <select id="settingLanguageSelect" class="form-control" style="width: 160px; cursor: pointer; text-align: center;">
-                  <option value="my" selected>မြန်မာ (Myanmar)</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              
-              <hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 0;">
-              
-              <!-- 2. Dark/Light Mode -->
+              <!-- Dark/Light Mode -->
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
                 <div>
                   <h4 style="font-weight: 600; margin: 0;">Theme Appearance (မျက်နှာပြင်အရောင်)</h4>
@@ -972,7 +972,7 @@
         <button class="btn-modal-action print" onclick="simulatePrintSuccess()">
           <i class="fa-solid fa-print" style="margin-right: 6px;"></i> Print Slip
         </button>
-        <button class="btn-modal-action cancel" onclick="closePrinterSlipModal()">ပိတ်မည်</button>
+        <button class="btn-modal-action cancel" onclick="closePrinterSlipModal()">Close</button>
       </div>
     </div>
   </div>
@@ -1281,7 +1281,7 @@
   <div class="modal-overlay" id="tableModalOverlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="tableModalTitle">စားပွဲအသစ်ထည့်ရန်</h3>
+        <h3 id="tableModalTitle">Add Table</h3>
         <button class="modal-close-btn" onclick="closeTableModal()">&times;</button>
       </div>
       
@@ -1289,28 +1289,28 @@
         <input type="hidden" id="editTableId">
         
         <div class="form-group">
-          <label for="tableNameInput">စားပွဲအမည်</label>
-          <input type="text" id="tableNameInput" class="form-control" required placeholder="ဥပမာ- Table 9">
+          <label for="tableNameInput">Table Name</label>
+          <input type="text" id="tableNameInput" class="form-control" required placeholder="e.g. Table 9">
         </div>
         
         <div class="form-group">
-          <label for="tableSeatsInput">လူဦးရေဝင်ဆံ့မှု (Seats)</label>
+          <label for="tableSeatsInput">Seats</label>
           <input type="number" id="tableSeatsInput" class="form-control" required placeholder="4" value="4">
         </div>
         
         <div class="form-group" id="tableStatusGroup" style="display: none; margin-bottom: 15px;">
-          <label for="tableStatusInput" style="font-weight: 600; color: var(--text-primary);">အခြေအနေ ပြောင်းလဲရန် (Change Status)</label>
+          <label for="tableStatusInput" style="font-weight: 600; color: var(--text-primary);">Status</label>
           <select id="tableStatusInput" class="form-control" style="background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); height: 42px; padding: 0 10px; border-radius: var(--border-radius-sm); font-size: 0.9rem; outline: none; cursor: pointer; width: 100%;">
-            <option value="available">အားသည် (Available)</option>
-            <option value="reserved">ဘိုကင်လုပ် (Booked)</option>
-            <option value="occupied">စားသုံးဆဲ (Occupied)</option>
-            <option value="billed">ဘေလ်တောင်း (Bill Requested)</option>
+            <option value="available">Available</option>
+            <option value="reserved">Reserved</option>
+            <option value="occupied">Occupied</option>
+            <option value="billed">Bill Requested</option>
           </select>
         </div>
         
         <div class="printer-slip-actions">
-          <button type="submit" class="btn-modal-action print">သိမ်းဆည်းမည်</button>
-          <button type="button" class="btn-modal-action cancel" onclick="closeTableModal()">ပိတ်မည်</button>
+          <button type="submit" class="btn-modal-action print">Save</button>
+          <button type="button" class="btn-modal-action cancel" onclick="closeTableModal()">Close</button>
         </div>
       </form>
     </div>
@@ -1391,6 +1391,30 @@
       
       <div class="printer-slip-actions" style="margin-top: auto; border-top: 1px solid var(--panel-border); padding-top: 12px;">
         <button class="btn-modal-action cancel" onclick="closeActiveOrdersModal()" style="width: 100%; flex: none;">ပိတ်မည်</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. ORDER / VOUCHER DETAIL MODAL -->
+  <div class="modal-overlay" id="orderDetailModalOverlay" style="z-index: 1260;">
+    <div class="modal-card order-detail-modal-card">
+      <div class="modal-header order-detail-modal-header">
+        <div>
+          <h3 id="orderDetailModalTitle" class="order-detail-modal-title">Order Detail</h3>
+          <p id="orderDetailModalSubtitle" class="order-detail-modal-subtitle">Tap a voucher or order to review included items.</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeOrderDetailModal()">&times;</button>
+      </div>
+
+      <div id="orderDetailModalBody" class="order-detail-modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="printer-slip-actions order-detail-actions">
+        <button type="button" class="btn-modal-action print" id="orderDetailPrintBtn" onclick="printOrderDetailRecord()">
+          <i class="fa-solid fa-print"></i> Print
+        </button>
+        <button type="button" class="btn-modal-action cancel" onclick="closeOrderDetailModal()">Close</button>
       </div>
     </div>
   </div>
@@ -1534,6 +1558,10 @@
                   <option value="POS-80 Drinks Printer (Simulated)">POS-80 Drinks Printer (Simulated)</option>
                 </select>
               </div>
+              <label for="setPrinterCutPaper" class="settings-check-row settings-check-row-inline">
+                <input type="checkbox" id="setPrinterCutPaper">
+                <span>Cut paper after print (auto cutter only)</span>
+              </label>
             </div>
           </section>
 
@@ -1542,34 +1570,38 @@
               <h4>Voucher Setup</h4>
               <p>Customize the customer receipt header, footer, and thermal paper size.</p>
             </div>
-            <div class="settings-form-grid">
-              <div class="form-group">
-                <label for="setVoucherTitle">Voucher Title</label>
-                <input type="text" id="setVoucherTitle" class="form-control" placeholder="Pandora POS">
+            <div class="settings-voucher-layout">
+              <div class="settings-form-grid">
+                <div class="form-group">
+                  <label for="setVoucherTitle">Voucher Title</label>
+                  <input type="text" id="setVoucherTitle" class="form-control" placeholder="Pandora POS">
+                </div>
+                <div class="form-group">
+                  <label for="setVoucherPhone">Phone</label>
+                  <input type="text" id="setVoucherPhone" class="form-control" placeholder="+95...">
+                </div>
+                <div class="form-group">
+                  <label for="setVoucherAddress">Address</label>
+                  <textarea id="setVoucherAddress" class="form-control settings-compact-textarea" rows="2" placeholder="Shop address"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="setVoucherFooter">Footer Note</label>
+                  <input type="text" id="setVoucherFooter" class="form-control" placeholder="Thank you.">
+                </div>
+                <div class="form-group">
+                  <label for="setVoucherPaperSize">Paper Size</label>
+                  <select id="setVoucherPaperSize" class="form-control">
+                    <option value="80mm">80mm thermal paper</option>
+                    <option value="58mm">58mm thermal paper</option>
+                  </select>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="setVoucherPhone">Phone</label>
-                <input type="text" id="setVoucherPhone" class="form-control" placeholder="+95...">
-              </div>
-              <div class="form-group">
-                <label for="setVoucherAddress">Address</label>
-                <textarea id="setVoucherAddress" class="form-control settings-compact-textarea" rows="2" placeholder="Shop address"></textarea>
-              </div>
-              <div class="form-group">
-                <label for="setVoucherFooter">Footer Note</label>
-                <input type="text" id="setVoucherFooter" class="form-control" placeholder="Thank you.">
-              </div>
-              <div class="form-group">
-                <label for="setVoucherPaperSize">Paper Size</label>
-                <select id="setVoucherPaperSize" class="form-control">
-                  <option value="80mm">80mm thermal paper</option>
-                  <option value="58mm">58mm thermal paper</option>
-                </select>
-              </div>
-              <label for="setVoucherShowLogo" class="settings-check-row settings-check-row-inline">
-                <input type="checkbox" id="setVoucherShowLogo">
-                <span>Show logo on customer voucher</span>
-              </label>
+              <aside class="voucher-preview-card">
+                <div class="voucher-preview-title">Preview</div>
+                <div class="voucher-preview-paper" id="voucherSettingsPreview">
+                  <!-- Rendered dynamically -->
+                </div>
+              </aside>
             </div>
           </section>
 

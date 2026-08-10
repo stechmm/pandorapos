@@ -1,0 +1,22 @@
+[Unit]
+Description=Pandora POS Node Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/pandora-pos
+Environment=NODE_ENV=production
+Environment=PORT=4173
+Environment=POS_DATA_DIR=/var/lib/pandora-pos
+Environment=POS_STATE_FILE=cloud-state.json
+Environment=POS_MAX_BACKUPS=100
+ExecStart=/usr/bin/node /var/www/pandora-pos/server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

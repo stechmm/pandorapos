@@ -32,6 +32,7 @@ let store = {
 const sessions = new Map();
 const eventClients = new Set();
 const failedLogins = new Map();
+let backupInfoCache = { at: 0, value: { count: 0, latest: null } };
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -121,8 +122,13 @@ function appendAudit(event, request, session, details = {}) {
 }
 
 function getBackupInfo() {
+  const now = Date.now();
+  if (now - backupInfoCache.at < 15000) return backupInfoCache.value;
   try {
-    if (!fs.existsSync(backupDir)) return { count: 0, latest: null };
+    if (!fs.existsSync(backupDir)) {
+      backupInfoCache = { at: now, value: { count: 0, latest: null } };
+      return backupInfoCache.value;
+    }
     const backups = fs.readdirSync(backupDir)
       .filter((name) => /^cloud-state-.+\.json$/.test(name))
       .map((name) => {
@@ -130,12 +136,17 @@ function getBackupInfo() {
         return { name, mtimeMs: fs.statSync(fullPath).mtimeMs };
       })
       .sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return {
+    backupInfoCache = {
+      at: now,
+      value: {
       count: backups.length,
       latest: backups[0] ? backups[0].name : null
+      }
     };
+    return backupInfoCache.value;
   } catch {
-    return { count: 0, latest: null };
+    backupInfoCache = { at: now, value: { count: 0, latest: null } };
+    return backupInfoCache.value;
   }
 }
 
@@ -188,7 +199,46 @@ function detectSystemPrinters() {
       resolve([]);
       return;
     }
-    const script = "Get-CimInstance Win32_Printer | Select-Object Name,Default,WorkOffline | ConvertTo-Json -Compress";
+    const script = `
+$ErrorActionPreference = 'SilentlyContinue'
+$defaultDevice = (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows' -Name Device).Device
+$defaultName = if ($defaultDevice) { ($defaultDevice -split ',')[0] } else { $null }
+$printers = @()
+
+try {
+  $printers = Get-CimInstance Win32_Printer | ForEach-Object {
+    [pscustomobject]@{
+      Name = $_.Name
+      DriverName = $_.DriverName
+      PortName = $_.PortName
+      Default = [bool]$_.Default
+      WorkOffline = [bool]$_.WorkOffline
+      Source = 'cim'
+    }
+  }
+} catch {
+  $printers = @()
+}
+
+if (-not $printers -or $printers.Count -eq 0) {
+  $printers = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers' | ForEach-Object {
+    $props = Get-ItemProperty $_.PSPath
+    $name = if ($props.Name) { $props.Name } else { $_.PSChildName }
+    if ($name -and $props.'Printer Driver') {
+      [pscustomobject]@{
+        Name = $name
+        DriverName = $props.'Printer Driver'
+        PortName = $props.Port
+        Default = ($name -eq $defaultName)
+        WorkOffline = $false
+        Source = 'registry'
+      }
+    }
+  }
+}
+
+$printers | Sort-Object @{ Expression = 'Default'; Descending = $true }, Name | ConvertTo-Json -Compress
+`;
     execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], { timeout: 8000 }, (error, stdout) => {
       if (error || !stdout.trim()) {
         resolve([]);
@@ -201,8 +251,11 @@ function detectSystemPrinters() {
           .filter((item) => item && item.Name)
           .map((item) => ({
             name: String(item.Name),
+            driverName: item.DriverName ? String(item.DriverName) : "",
+            portName: item.PortName ? String(item.PortName) : "",
             isDefault: Boolean(item.Default),
-            offline: Boolean(item.WorkOffline)
+            offline: Boolean(item.WorkOffline),
+            source: item.Source ? String(item.Source) : "unknown"
           })));
       } catch {
         resolve([]);
