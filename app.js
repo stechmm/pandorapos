@@ -33,6 +33,7 @@ let state = {
 
 const OFFLINE_STORAGE_KEY = 'PANDORA_POS_FULL_UI_OFFLINE_STATE_V5';
 let SERVER_API = 'api/index.php';
+const LOCAL_PRINT_BRIDGE_URLS = ['http://127.0.0.1:4788', 'http://localhost:4788'];
 let serverCsrfToken = null;
 let serverStateVersion = 0;
 let serverReady = false;
@@ -787,18 +788,69 @@ function populatePrinterDropdowns() {
   }
 }
 
+async function requestLocalPrintBridge(path, options = {}) {
+  let lastError = null;
+  for (const baseUrl of LOCAL_PRINT_BRIDGE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        mode: 'cors',
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      return { ...payload, bridgeUrl: baseUrl };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('Local print bridge is not running.');
+}
+
+async function tryPrintWithLocalBridge(html, slipType) {
+  const printerName = html.includes('DRINKS COUNTER TICKET')
+    ? (state.settings.drinksPrinterName || '')
+    : (state.settings.printerName || '');
+
+  const payload = await requestLocalPrintBridge('/print-html', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      html,
+      title: slipType === 'kitchen' ? 'Kitchen Ticket' : 'Customer Receipt',
+      printerName,
+      cutPaper: state.settings?.printerCutPaper === true,
+      paperSize: slipType === 'kitchen' ? '58mm' : (state.settings.voucherPaperSize || '80mm')
+    })
+  });
+  return payload?.ok === true;
+}
+
 async function refreshSystemPrinters() {
   const status = document.getElementById('printerDetectionStatus');
   const btn = document.getElementById('refreshPrintersBtn');
   if (status) status.textContent = 'Detecting printer drivers...';
   if (btn) btn.disabled = true;
   try {
+    try {
+      const localPayload = await requestLocalPrintBridge('/printers', { method: 'GET' });
+      const localPrinters = Array.isArray(localPayload.printers) ? localPayload.printers : [];
+      if (localPrinters.length) {
+        state.systemPrinters = localPrinters;
+        populatePrinterDropdowns();
+        if (status) status.textContent = `${localPrinters.length} local printer driver(s) detected via Pandora Print Bridge.`;
+        return;
+      }
+    } catch (bridgeError) {
+      console.warn('Local print bridge unavailable:', bridgeError);
+    }
+
     const payload = await apiRequest('printers', { method: 'GET' });
     state.systemPrinters = Array.isArray(payload.printers) ? payload.printers : [];
     populatePrinterDropdowns();
   } catch (error) {
     console.warn('Printer detection failed:', error);
-    if (status) status.textContent = 'Printer detection failed. Check local server permissions.';
+    if (status) status.textContent = 'Printer detection failed. Start Pandora Print Bridge on this cashier PC.';
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -3424,7 +3476,7 @@ function printReceiptInBrowser() {
   return true;
 }
 
-function simulatePrintSuccess() {
+async function simulatePrintSuccess() {
   const isElectron = !!(window.chrome && window.chrome.ipcRenderer || navigator.userAgent.indexOf('Electron') > -1);
   const cutPaper = state.settings?.printerCutPaper === true;
   
@@ -3467,6 +3519,28 @@ function simulatePrintSuccess() {
       printReceiptInBrowser();
     }
   } else {
+    const content = document.getElementById('simulatedThermalReceipt');
+    const html = content ? content.innerHTML : '';
+    const slipType = content?.dataset?.slipType || 'customer';
+    if (html.trim()) {
+      try {
+        if (html.includes('receipt-page-break')) {
+          const parts = html.split(/<div[^>]*class="receipt-page-break"[^>]*>.*?<\/div>/i).filter(part => part.trim());
+          for (const part of parts) {
+            await tryPrintWithLocalBridge(part, slipType);
+          }
+          closePrinterSlipModal();
+          return;
+        }
+        const printed = await tryPrintWithLocalBridge(html, slipType);
+        if (printed) {
+          closePrinterSlipModal();
+          return;
+        }
+      } catch (bridgeError) {
+        console.warn('Local bridge print failed, falling back to browser dialog:', bridgeError);
+      }
+    }
     printReceiptInBrowser();
   }
   closePrinterSlipModal();
