@@ -11,10 +11,12 @@ const stateFile = path.join(dataDir, process.env.POS_STATE_FILE || "cloud-state.
 const backupStateFile = `${stateFile}.bak`;
 const backupDir = path.join(dataDir, "backups");
 const auditLogFile = path.join(dataDir, "audit-log.jsonl");
+const printJobsFile = path.join(dataDir, process.env.POS_PRINT_JOBS_FILE || "print-jobs.json");
 const port = Number(process.env.PORT || 4173);
 const maxBackupFiles = Number(process.env.POS_MAX_BACKUPS || 30);
 const maxLoginAttempts = Number(process.env.POS_MAX_LOGIN_ATTEMPTS || 8);
 const loginLockMs = Number(process.env.POS_LOGIN_LOCK_MS || 5 * 60 * 1000);
+const printAgentToken = process.env.POS_PRINT_AGENT_TOKEN || "";
 
 const defaultUsers = [
   { id: "u1", username: "admin", name: "Admin 1", role: "admin", password: "1991" },
@@ -27,6 +29,12 @@ let store = {
   version: 0,
   updatedAt: new Date().toISOString(),
   state: null
+};
+
+let printJobsStore = {
+  version: 0,
+  updatedAt: new Date().toISOString(),
+  jobs: []
 };
 
 const sessions = new Map();
@@ -72,6 +80,41 @@ function loadStore() {
   } catch (error) {
     console.warn("Could not read POS state file:", error.message);
   }
+}
+
+function loadPrintJobs() {
+  if (!fs.existsSync(printJobsFile)) return;
+  try {
+    const saved = JSON.parse(fs.readFileSync(printJobsFile, "utf8"));
+    if (saved && typeof saved === "object" && Array.isArray(saved.jobs)) {
+      printJobsStore = {
+        version: Number(saved.version || 0),
+        updatedAt: saved.updatedAt || new Date().toISOString(),
+        jobs: saved.jobs
+      };
+    }
+  } catch (error) {
+    console.warn("Could not read POS print jobs file:", error.message);
+  }
+}
+
+function savePrintJobs() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  const tempFile = `${printJobsFile}.${process.pid}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(printJobsStore, null, 2));
+  fs.renameSync(tempFile, printJobsFile);
+}
+
+function updatePrintJobs(mutator) {
+  mutator(printJobsStore.jobs);
+  printJobsStore.version += 1;
+  printJobsStore.updatedAt = new Date().toISOString();
+  const keepAfter = Date.now() - (7 * 24 * 60 * 60 * 1000);
+  printJobsStore.jobs = printJobsStore.jobs.filter((job) => {
+    if (!["printed", "cancelled"].includes(job.status)) return true;
+    return new Date(job.updatedAt || job.createdAt || 0).getTime() >= keepAfter;
+  });
+  savePrintJobs();
 }
 
 function saveStore() {
@@ -270,7 +313,7 @@ function corsHeaders(request) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Content-Type, X-CSRF-Token",
+    "Access-Control-Allow-Headers": "Content-Type, X-CSRF-Token, X-Print-Agent-Token",
     "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
     "Vary": "Origin"
   };
@@ -318,6 +361,13 @@ function requireCsrf(request, session) {
   return Boolean(session && token && token === session.csrfToken);
 }
 
+function hasPrintAgentAccess(request) {
+  if (!printAgentToken) return true;
+  const requestUrl = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+  const token = request.headers["x-print-agent-token"] || requestUrl.searchParams.get("token") || "";
+  return token === printAgentToken;
+}
+
 function publicUser(user) {
   if (!user) return null;
   return {
@@ -325,6 +375,36 @@ function publicUser(user) {
     username: user.username,
     name: user.name,
     role: user.role
+  };
+}
+
+function normalizePrintJob(candidate, session) {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw Object.assign(new Error("Invalid print job payload."), { statusCode: 400 });
+  }
+  const html = String(candidate.html || "");
+  if (!html.trim()) {
+    throw Object.assign(new Error("Print job is missing HTML."), { statusCode: 400 });
+  }
+  if (html.length > 500000) {
+    throw Object.assign(new Error("Print job HTML is too large."), { statusCode: 413 });
+  }
+  const now = new Date().toISOString();
+  return {
+    id: candidate.id ? String(candidate.id) : `pj-${Date.now()}-${makeToken(5)}`,
+    orderId: candidate.orderId ? String(candidate.orderId) : "",
+    kind: candidate.kind ? String(candidate.kind) : "kitchen",
+    station: candidate.station ? String(candidate.station) : "kitchen",
+    title: candidate.title ? String(candidate.title) : "Kitchen Ticket",
+    printerName: candidate.printerName ? String(candidate.printerName) : "",
+    paperSize: candidate.paperSize === "80mm" ? "80mm" : "58mm",
+    html,
+    status: "pending",
+    attempts: 0,
+    error: "",
+    createdBy: session ? publicUser(session.user) : null,
+    createdAt: now,
+    updatedAt: now
   };
 }
 
@@ -447,6 +527,75 @@ async function handleApi(request, response, requestUrl) {
       printers,
       platform: process.platform
     });
+    return;
+  }
+
+  if (action === "print-jobs" && request.method === "GET") {
+    if (!hasPrintAgentAccess(request)) {
+      sendJson(request, response, 403, { error: "Invalid print agent token." });
+      return;
+    }
+    const status = requestUrl.searchParams.get("status") || "pending";
+    const station = requestUrl.searchParams.get("station") || "all";
+    const limit = Math.max(1, Math.min(50, Number(requestUrl.searchParams.get("limit") || 10)));
+    const jobs = printJobsStore.jobs
+      .filter((job) => !status || job.status === status)
+      .filter((job) => station === "all" || job.station === station)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .slice(0, limit);
+    sendJson(request, response, 200, {
+      ok: true,
+      version: printJobsStore.version,
+      updatedAt: printJobsStore.updatedAt,
+      jobs
+    });
+    return;
+  }
+
+  if (action === "print-jobs" && request.method === "POST") {
+    if (!session) {
+      sendJson(request, response, 401, { error: "Login required." });
+      return;
+    }
+    if (!requireCsrf(request, session)) {
+      sendJson(request, response, 403, { error: "Invalid CSRF token." });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const inputJobs = Array.isArray(body.jobs) ? body.jobs : [body.job || body];
+    const jobs = inputJobs.map((job) => normalizePrintJob(job, session));
+    updatePrintJobs((currentJobs) => {
+      jobs.forEach((job) => currentJobs.push(job));
+    });
+    appendAudit("print_jobs_created", request, session, { count: jobs.length, orderIds: jobs.map((job) => job.orderId) });
+    sendJson(request, response, 200, {
+      ok: true,
+      version: printJobsStore.version,
+      jobs: jobs.map((job) => ({ id: job.id, orderId: job.orderId, station: job.station, status: job.status }))
+    });
+    return;
+  }
+
+  if (action === "print-jobs-ack" && request.method === "POST") {
+    if (!hasPrintAgentAccess(request)) {
+      sendJson(request, response, 403, { error: "Invalid print agent token." });
+      return;
+    }
+    const body = await readJsonBody(request);
+    const ids = Array.isArray(body.ids) ? body.ids.map(String) : [String(body.id || "")].filter(Boolean);
+    const nextStatus = body.status === "failed" ? "failed" : "printed";
+    const now = new Date().toISOString();
+    updatePrintJobs((currentJobs) => {
+      currentJobs.forEach((job) => {
+        if (!ids.includes(job.id)) return;
+        job.status = nextStatus;
+        job.updatedAt = now;
+        job.printedAt = nextStatus === "printed" ? now : job.printedAt;
+        job.error = nextStatus === "failed" ? String(body.error || "Print failed.") : "";
+        job.attempts = Number(job.attempts || 0) + 1;
+      });
+    });
+    sendJson(request, response, 200, { ok: true, version: printJobsStore.version });
     return;
   }
 
@@ -593,6 +742,7 @@ function serveStatic(request, response, requestUrl) {
 }
 
 loadStore();
+loadPrintJobs();
 
 const server = http.createServer(async (request, response) => {
   try {

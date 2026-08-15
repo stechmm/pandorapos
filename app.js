@@ -2848,7 +2848,7 @@ function confirmCartStep() {
       alert(table ? `Order for "${displayText(table.name)}" has been confirmed and sent to kitchen.` : 'New order has been confirmed and sent to kitchen.');
     }
     
-    showPrinterSlipModal(targetOrder, 'kitchen');
+    queueKitchenPrintJob(targetOrder);
     
     // Clear cart and return to Tables Floor Map (hiding cart)
     clearCart();
@@ -2861,7 +2861,7 @@ function confirmCartStep() {
 
     saveState();
     immediateServerSave();
-    showPrinterSlipModal(takeawayOrder, 'kitchen');
+    queueKitchenPrintJob(takeawayOrder);
     alert("Takeaway order saved. You can start another order now, then recall this one from Orders for payment.");
 
     clearCart();
@@ -2938,6 +2938,7 @@ function processSendAction() {
       delete cart.draftOrderId;
       saveState();
       immediateServerSave(); // Push order to all devices instantly
+      queueKitchenPrintJob(existingOrder);
       alert(table ? `Order for "${displayText(table.name)}" has been saved and sent to kitchen.` : 'Order has been saved and sent to kitchen.');
     }
     
@@ -2947,7 +2948,7 @@ function processSendAction() {
   } else {
     const takeawayOrder = upsertTakeawayOrderFromCart('pending');
     if (takeawayOrder) {
-      showPrinterSlipModal(takeawayOrder, 'kitchen');
+      queueKitchenPrintJob(takeawayOrder);
       saveState();
       immediateServerSave();
       alert("Takeaway order sent to kitchen. You can start another order now.");
@@ -3172,6 +3173,104 @@ function processPaymentAction() {
       renderSalesCounter();
       alert(`Takeaway payment completed. (${method})`);
     });
+  }
+}
+
+function buildKitchenPrintJobs(order) {
+  if (!order || !Array.isArray(order.items)) return [];
+
+  const drinksItems = order.items.filter(item => {
+    const prod = state.products.find(p => p.id === item.id);
+    return prod && prod.station === 'Bar';
+  });
+
+  const kitchenItems = order.items.filter(item => {
+    const prod = state.products.find(p => p.id === item.id);
+    return !prod || prod.station !== 'Bar';
+  });
+
+  const buildTicket = ({ title, subtitle, items, footer, station, printerName }) => {
+    if (!items.length) return null;
+    let html = `
+      <div class="receipt-header receipt-kitchen-header">
+        <div class="receipt-kitchen-title">${title}</div>
+        <div class="receipt-kitchen-subtitle">Printer: ${escapeHtml(printerName)}</div>
+      </div>
+      <div class="receipt-divider"></div>
+      <div class="receipt-info-row">
+        <span>Order: <strong>${escapeHtml(order.id)}</strong></span>
+        <span>Table: <strong>${escapeHtml(displayText(order.tableName, 'Takeaway'))}</strong></span>
+      </div>
+      <div class="receipt-info-row">
+        <span>Time: ${new Date().toLocaleTimeString()}</span>
+        <span>Type: ${order.type === 'takeaway' ? 'Takeaway' : 'Dine-in'}</span>
+      </div>
+      <div class="receipt-divider"></div>
+      <div class="receipt-kitchen-items">
+    `;
+
+    items.forEach(item => {
+      html += `
+        <div class="receipt-item-row receipt-kitchen-item">
+          <span class="receipt-item-name"><strong>[ ${item.quantity} x ] ${escapeHtml(displayText(item.name, 'Item'))}</strong></span>
+        </div>
+      `;
+      if (item.note) {
+        html += `<div class="receipt-item-note receipt-kitchen-note">*** Note: ${escapeHtml(displayText(item.note))}</div>`;
+      }
+    });
+
+    html += `
+      </div>
+      <div class="receipt-divider"></div>
+      <div class="receipt-footer receipt-kitchen-footer">${footer}</div>
+    `;
+
+    return {
+      id: `pj-${order.id}-${station}-${Date.now()}`,
+      orderId: order.id,
+      kind: 'kitchen',
+      station,
+      title: subtitle,
+      printerName,
+      paperSize: '58mm',
+      html
+    };
+  };
+
+  return [
+    buildTicket({
+      title: 'KITCHEN ORDER TICKET',
+      subtitle: 'Kitchen Ticket',
+      items: kitchenItems,
+      footer: '* Prepare this order as soon as possible *',
+      station: 'kitchen',
+      printerName: state.settings.printerName || 'POS-80 Kitchen Printer'
+    }),
+    buildTicket({
+      title: 'DRINKS COUNTER TICKET',
+      subtitle: 'Drinks Ticket',
+      items: drinksItems,
+      footer: '* Prepare drinks as soon as possible *',
+      station: 'drinks',
+      printerName: state.settings.drinksPrinterName || 'POS-80 Drinks Printer (Simulated)'
+    })
+  ].filter(Boolean);
+}
+
+async function queueKitchenPrintJob(order) {
+  const jobs = buildKitchenPrintJobs(order);
+  if (!jobs.length) return false;
+  try {
+    await apiRequest('print-jobs', {
+      method: 'POST',
+      body: JSON.stringify({ jobs })
+    });
+    console.log(`Queued ${jobs.length} kitchen print job(s) for ${order.id}.`);
+    return true;
+  } catch (error) {
+    console.warn('Could not queue kitchen print job:', error);
+    return false;
   }
 }
 

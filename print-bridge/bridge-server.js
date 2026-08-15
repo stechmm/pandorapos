@@ -6,9 +6,38 @@ const { execFile, spawn } = require('child_process');
 
 const PORT = Number(process.env.PANDORA_PRINT_BRIDGE_PORT || 4788);
 const JOB_DIR = path.join(os.tmpdir(), 'pandora-print-bridge');
-const VERSION = '1.0.0';
+const CONFIG_FILE = path.join(__dirname, 'print-agent-config.json');
+const VERSION = '1.1.0';
+const DEFAULT_CONFIG = {
+  autoPrint: true,
+  serverApiUrl: 'http://127.0.0.1:4173/api/index.php',
+  token: '',
+  pollMs: 2000,
+  station: 'all'
+};
 
 fs.mkdirSync(JOB_DIR, { recursive: true });
+
+function loadConfig() {
+  try {
+    const fileConfig = fs.existsSync(CONFIG_FILE)
+      ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+      : {};
+    return {
+      ...DEFAULT_CONFIG,
+      ...fileConfig,
+      serverApiUrl: process.env.PANDORA_POS_SERVER_API || fileConfig.serverApiUrl || DEFAULT_CONFIG.serverApiUrl,
+      token: process.env.PANDORA_PRINT_AGENT_TOKEN || fileConfig.token || '',
+      pollMs: Number(process.env.PANDORA_PRINT_POLL_MS || fileConfig.pollMs || DEFAULT_CONFIG.pollMs)
+    };
+  } catch (error) {
+    console.warn('Could not read print-agent-config.json:', error.message);
+    return { ...DEFAULT_CONFIG };
+  }
+}
+
+let config = loadConfig();
+let polling = false;
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -190,6 +219,64 @@ async function printHtml(payload) {
   return filePath;
 }
 
+function buildApiUrl(action, extraParams = {}) {
+  const url = new URL(config.serverApiUrl);
+  url.searchParams.set('action', action);
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  });
+  if (config.token) url.searchParams.set('token', config.token);
+  return url;
+}
+
+async function postAgentAck(id, status, error = '') {
+  const response = await fetch(buildApiUrl('print-jobs-ack'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(config.token ? { 'X-Print-Agent-Token': config.token } : {})
+    },
+    body: JSON.stringify({ id, status, error })
+  });
+  if (!response.ok) throw new Error(`Print job ack failed: HTTP ${response.status}`);
+}
+
+async function pollPrintJobs() {
+  if (!config.autoPrint || polling) return;
+  polling = true;
+  try {
+    const response = await fetch(buildApiUrl('print-jobs', {
+      status: 'pending',
+      limit: 10,
+      station: config.station || 'all'
+    }), {
+      headers: config.token ? { 'X-Print-Agent-Token': config.token } : {}
+    });
+    if (!response.ok) throw new Error(`Print job fetch failed: HTTP ${response.status}`);
+    const payload = await response.json();
+    const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+    for (const job of jobs) {
+      try {
+        console.log(`Printing job ${job.id} (${job.title || job.kind || 'ticket'})...`);
+        await printHtml(job);
+        await postAgentAck(job.id, 'printed');
+        console.log(`Printed job ${job.id}.`);
+      } catch (error) {
+        console.error(`Print job ${job.id} failed:`, error.message);
+        try {
+          await postAgentAck(job.id, 'failed', error.message);
+        } catch (ackError) {
+          console.error(`Could not ack failed job ${job.id}:`, ackError.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Print agent polling warning:', error.message);
+  } finally {
+    polling = false;
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, {});
@@ -198,7 +285,7 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && req.url === '/health') {
-      sendJson(res, 200, { ok: true, name: 'Pandora Local Print Bridge', version: VERSION });
+      sendJson(res, 200, { ok: true, name: 'Pandora Local Print Bridge', version: VERSION, autoPrint: config.autoPrint, serverApiUrl: config.serverApiUrl });
       return;
     }
 
@@ -227,5 +314,14 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Pandora Local Print Bridge ${VERSION}`);
   console.log(`Listening on http://127.0.0.1:${PORT}`);
+  console.log(`Print agent: ${config.autoPrint ? 'ON' : 'OFF'}`);
+  console.log(`Server API:  ${config.serverApiUrl}`);
   console.log('Keep this window open while using Pandora POS printing.');
+  if (config.autoPrint) {
+    setInterval(() => {
+      config = loadConfig();
+      pollPrintJobs();
+    }, Math.max(1000, Number(config.pollMs || 2000)));
+    setTimeout(pollPrintJobs, 500);
+  }
 });

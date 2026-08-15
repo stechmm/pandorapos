@@ -11,10 +11,13 @@ Windows printer driver.
 Folder contents
 ---------------
 bridge-server.js
-  Local printer bridge server.
+  Local printer bridge and cashier print agent server.
 
 Start Pandora Print Bridge.bat
   Double-click this before using Pandora POS printing.
+
+print-agent-config.json
+  Cashier auto-print settings. Set serverApiUrl to your live POS server API.
 
 node.exe
   Optional bundled Node.js runtime. If this file is included, the PC does not need
@@ -26,16 +29,28 @@ How to use on a cashier PC
 2. If this folder does not include node.exe, install Node.js 20 LTS or newer.
 3. Open Windows Settings > Bluetooth & devices > Printers & scanners.
 4. Confirm the printer appears and can print a Windows test page.
-5. Double-click "Start Pandora Print Bridge.bat".
-6. Keep the black bridge window open.
-7. Open Pandora POS in Chrome or Edge.
-8. Go to Admin > Restaurant Settings > Printers.
-9. Click Refresh Printers and select the local printer.
-10. Print a Kitchen Ticket or Customer Receipt.
+5. Edit "print-agent-config.json" if your POS server URL is different.
+6. Double-click "Start Pandora Print Bridge.bat".
+7. Keep the black bridge window open.
+8. Open Pandora POS in Chrome or Edge.
+9. Go to Admin > Restaurant Settings > Printers.
+10. Click Refresh Printers and select the local printer.
+11. Print a Kitchen Ticket or Customer Receipt.
+
+Tablet auto-print workflow
+--------------------------
+1. Keep this bridge running on the cashier PC.
+2. Waiter tablet opens the live Pandora POS URL.
+3. Waiter confirms or sends an order to kitchen.
+4. The POS server stores a pending print job.
+5. This bridge sees the pending job and prints from the cashier PC printer.
+
+This means the tablet does not need a printer driver.
 
 Important notes
 ---------------
 - The bridge only listens on 127.0.0.1, so it is for the same cashier PC only.
+- Auto-print talks outbound to the POS serverApiUrl in print-agent-config.json.
 - If Chrome/Edge asks permission or popup/printing is blocked, allow it for the POS.
 - The selected printer may be set as the Windows default printer while printing.
 - Do not close the bridge window while printing.
