@@ -211,6 +211,16 @@ function Update-AgentConfig {
 
 function New-FullPosLauncher {
   $launcher = Join-Path $InstallDir "Start Pandora POS Full System.bat"
+  $localServerBlock = ""
+  if ($LivePosUrl -match "localhost|127\.0\.0\.1") {
+    $localServerBlock = @"
+if exist "%~dp0Start Pandora POS Silent Print.bat" (
+  call "%~dp0Start Pandora POS Silent Print.bat"
+  exit /b %ERRORLEVEL%
+)
+
+"@
+  }
   $content = @"
 @echo off
 setlocal
@@ -220,11 +230,7 @@ if exist "%~dp0print-bridge\Start Pandora Print Bridge.bat" (
   start "Pandora Print Agent" /min "%~dp0print-bridge\Start Pandora Print Bridge.bat"
 )
 
-if exist "%~dp0Start Pandora POS Silent Print.bat" (
-  call "%~dp0Start Pandora POS Silent Print.bat"
-  exit /b %ERRORLEVEL%
-)
-
+$localServerBlock
 set "BROWSER="
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
 if not defined BROWSER if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"

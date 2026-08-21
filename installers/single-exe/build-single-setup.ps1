@@ -1,5 +1,8 @@
 param(
-  [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+  [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
+  [ValidateSet("Local", "Cloud")]
+  [string]$Mode = "Local",
+  [string]$CloudUrl = "http://167.172.79.75"
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +42,16 @@ $setupSource = Join-Path $Root "installers\single-exe\Setup.ps1"
 $setupPath = Join-Path $build "Setup.ps1"
 Copy-Item -LiteralPath $setupSource -Destination $setupPath -Force
 $setupText = Get-Content -Raw -LiteralPath $setupPath
+if ($Mode -eq "Cloud") {
+  $cloudApi = $CloudUrl.TrimEnd("/") + "/api/index.php"
+  $setupText = $setupText.Replace('[string]$LivePosUrl = "http://localhost:4173"', ('[string]$LivePosUrl = "' + $CloudUrl.TrimEnd("/") + '"'))
+  $setupText = $setupText.Replace('[string]$ServerApiUrl = "http://localhost:4173/api/index.php"', ('[string]$ServerApiUrl = "' + $cloudApi + '"'))
+  $setupText = $setupText.Replace("Full local POS server, cashier/tablet workflow, auto printing, and XP-58 setup", "Cloud POS station, cashier/tablet workflow, auto printing, and XP-58 setup")
+  $setupText = $setupText.Replace("Installing full Pandora POS system", "Installing Pandora POS cloud station")
+  $setupText = $setupText.Replace("Installing local POS server, full app files, silent print launcher, print agent, and XP-58 printer queue.", "Installing full app files, cloud POS launcher, print agent, and XP-58 printer queue.")
+  $setupText = $setupText.Replace("Use this PC as the local cashier/server station. Tablets and phones can connect to this PC on the same network.", "This station connects to the VPS POS server and keeps local XP-58 printing ready.")
+  $setupText = $setupText.Replace("Configuring local POS server and print agent...", "Configuring cloud POS link and print agent...")
+}
 [System.IO.File]::WriteAllText($setupPath, $setupText, [System.Text.Encoding]::UTF8)
 
 $payloadZip = Join-Path $build "payload.zip"
@@ -47,58 +60,10 @@ if (Test-Path $payloadZip) {
 }
 Compress-Archive -Path (Join-Path $payload "*") -DestinationPath $payloadZip -CompressionLevel Optimal
 
-$exePath = Join-Path $dist "Pandora_POS_Full_Setup_$stamp.exe"
-$sedPath = Join-Path $build "Pandora_POS_Setup.sed"
-$sed = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=0
-HideExtractAnimation=1
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-TargetNTVersion=0
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName=$exePath
-FriendlyName=Pandora POS Setup
-AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -File Setup.ps1
-PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
-SourceFiles=SourceFiles
-FILE0=Setup.ps1
-FILE1=payload.zip
-
-[SourceFiles]
-SourceFiles0=$build\
-
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-
-[Strings]
-FILE0=Setup.ps1
-FILE1=payload.zip
-"@
-Set-Content -LiteralPath $sedPath -Value $sed -Encoding ASCII
-
-$iexpress = Join-Path $env:WINDIR "system32\iexpress.exe"
-if (-not (Test-Path $iexpress)) {
-  throw "IExpress was not found at $iexpress"
-}
-
-& $iexpress /N /Q $sedPath
-if (-not (Test-Path $exePath)) {
-  $bootstrapSource = Join-Path $build "PandoraSetupBootstrapper.cs"
-  $bootstrapCode = @'
+$packageName = if ($Mode -eq "Cloud") { "Pandora_POS_Cloud_Station_Setup" } else { "Pandora_POS_Full_Local_Setup" }
+$exePath = Join-Path $dist "$packageName`_$stamp.exe"
+$bootstrapSource = Join-Path $build "PandoraSetupBootstrapper.cs"
+$bootstrapCode = @'
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -156,24 +121,23 @@ internal static class Program
     }
 }
 '@
-  Set-Content -LiteralPath $bootstrapSource -Value $bootstrapCode -Encoding ASCII
+Set-Content -LiteralPath $bootstrapSource -Value $bootstrapCode -Encoding ASCII
 
-  $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe", "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" -ErrorAction SilentlyContinue |
-    Select-Object -First 1 -ExpandProperty FullName
-  if (-not $csc) {
-    throw "IExpress did not create $exePath and .NET C# compiler was not found."
-  }
-
-  & $csc /nologo /target:winexe /platform:anycpu /reference:System.Windows.Forms.dll /out:$exePath /resource:"$setupPath,Setup.ps1" /resource:"$payloadZip,payload.zip" $bootstrapSource
-  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exePath)) {
-    throw "Setup.exe build failed."
-  }
+$csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe", "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" -ErrorAction SilentlyContinue |
+  Select-Object -First 1 -ExpandProperty FullName
+if (-not $csc) {
+  throw ".NET C# compiler was not found."
 }
 
-$readme = Join-Path $dist "Pandora_POS_Full_Setup_README_$stamp.txt"
+& $csc /nologo /target:winexe /platform:x86 /reference:System.Windows.Forms.dll /out:$exePath /resource:"$setupPath,Setup.ps1" /resource:"$payloadZip,payload.zip" $bootstrapSource
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exePath)) {
+  throw "Setup.exe build failed."
+}
+
+$readme = Join-Path $dist "$packageName`_README_$stamp.txt"
 Copy-Item -LiteralPath (Join-Path $Root "installers\single-exe\README-SETUP.txt") -Destination $readme -Force
 
-$zipPath = Join-Path $dist "Pandora_POS_Full_Setup_$stamp.zip"
+$zipPath = Join-Path $dist "$packageName`_$stamp.zip"
 if (Test-Path $zipPath) {
   Remove-Item -LiteralPath $zipPath -Force
 }
