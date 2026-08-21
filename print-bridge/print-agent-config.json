@@ -1,6 +1,6 @@
 {
   "autoPrint": true,
-  "serverApiUrl": "http://167.172.79.75/api/index.php",
+  "serverApiUrl": "http://localhost:4173/api/index.php",
   "token": "",
   "pollMs": 2000,
   "station": "all"

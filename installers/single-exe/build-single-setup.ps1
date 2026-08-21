@@ -47,7 +47,7 @@ if (Test-Path $payloadZip) {
 }
 Compress-Archive -Path (Join-Path $payload "*") -DestinationPath $payloadZip -CompressionLevel Optimal
 
-$exePath = Join-Path $dist "Pandora_POS_Setup_$stamp.exe"
+$exePath = Join-Path $dist "Pandora_POS_Full_Setup_$stamp.exe"
 $sedPath = Join-Path $build "Pandora_POS_Setup.sed"
 $sed = @"
 [Version]
@@ -170,10 +170,10 @@ internal static class Program
   }
 }
 
-$readme = Join-Path $dist "Pandora_POS_Setup_README_$stamp.txt"
+$readme = Join-Path $dist "Pandora_POS_Full_Setup_README_$stamp.txt"
 Copy-Item -LiteralPath (Join-Path $Root "installers\single-exe\README-SETUP.txt") -Destination $readme -Force
 
-$zipPath = Join-Path $dist "Pandora_POS_Setup_$stamp.zip"
+$zipPath = Join-Path $dist "Pandora_POS_Full_Setup_$stamp.zip"
 if (Test-Path $zipPath) {
   Remove-Item -LiteralPath $zipPath -Force
 }

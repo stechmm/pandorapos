@@ -1,7 +1,7 @@
 param(
   [string]$InstallDir = "C:\PandoraPOS",
-  [string]$LivePosUrl = "http://167.172.79.75",
-  [string]$ServerApiUrl = "http://167.172.79.75/api/index.php",
+  [string]$LivePosUrl = "http://localhost:4173",
+  [string]$ServerApiUrl = "http://localhost:4173/api/index.php",
   [string]$PrinterName = "Pandora XP-58"
 )
 
@@ -82,7 +82,7 @@ function New-InstallerForm {
   $hero.Controls.Add($title)
 
   $subtitle = New-Object Windows.Forms.Label
-  $subtitle.Text = "Cashier POS, auto kitchen printing, and XP-58 receipt setup"
+  $subtitle.Text = "Full local POS server, cashier/tablet workflow, auto printing, and XP-58 setup"
   $subtitle.ForeColor = [Drawing.Color]::FromArgb(220, 232, 246)
   $subtitle.Font = New-Object Drawing.Font("Segoe UI", 10, [Drawing.FontStyle]::Regular)
   $subtitle.AutoSize = $true
@@ -108,7 +108,7 @@ function New-InstallerForm {
   $hero.Controls.Add($badge)
 
   $bodyTitle = New-Object Windows.Forms.Label
-  $bodyTitle.Text = "Installing Pandora POS cashier station"
+  $bodyTitle.Text = "Installing full Pandora POS system"
   $bodyTitle.ForeColor = [Drawing.Color]::FromArgb(19, 32, 51)
   $bodyTitle.Font = New-Object Drawing.Font("Segoe UI", 15, [Drawing.FontStyle]::Bold)
   $bodyTitle.AutoSize = $true
@@ -131,7 +131,7 @@ function New-InstallerForm {
   $form.Controls.Add($ProgressBar)
 
   $script:FeatureLabel = New-Object Windows.Forms.Label
-  $FeatureLabel.Text = "Installing app files, desktop shortcut, startup print agent, live POS link, and XP-58 printer queue."
+  $FeatureLabel.Text = "Installing local POS server, full app files, silent print launcher, print agent, and XP-58 printer queue."
   $FeatureLabel.ForeColor = [Drawing.Color]::FromArgb(88, 105, 128)
   $FeatureLabel.Font = New-Object Drawing.Font("Segoe UI", 9, [Drawing.FontStyle]::Regular)
   $FeatureLabel.AutoSize = $false
@@ -140,7 +140,7 @@ function New-InstallerForm {
   $form.Controls.Add($FeatureLabel)
 
   $script:HintLabel = New-Object Windows.Forms.Label
-  $HintLabel.Text = "Tablet orders will print automatically from this cashier PC."
+  $HintLabel.Text = "Use this PC as the local cashier/server station. Tablets and phones can connect to this PC on the same network."
   $HintLabel.ForeColor = [Drawing.Color]::FromArgb(11, 87, 164)
   $HintLabel.Font = New-Object Drawing.Font("Segoe UI", 9, [Drawing.FontStyle]::Bold)
   $HintLabel.AutoSize = $true
@@ -191,6 +191,11 @@ function Copy-AppFiles {
   }
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   Copy-Item -Path (Join-Path $AppSource "*") -Destination $InstallDir -Recurse -Force
+  $rootNode = Join-Path $InstallDir "node.exe"
+  $bridgeDir = Join-Path $InstallDir "print-bridge"
+  if ((Test-Path $rootNode) -and (Test-Path $bridgeDir)) {
+    Copy-Item -LiteralPath $rootNode -Destination (Join-Path $bridgeDir "node.exe") -Force
+  }
 }
 
 function Update-AgentConfig {
@@ -204,8 +209,8 @@ function Update-AgentConfig {
   $config | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding UTF8
 }
 
-function New-CashierLauncher {
-  $launcher = Join-Path $InstallDir "Start Pandora Cashier.bat"
+function New-FullPosLauncher {
+  $launcher = Join-Path $InstallDir "Start Pandora POS Full System.bat"
   $content = @"
 @echo off
 setlocal
@@ -215,6 +220,11 @@ if exist "%~dp0print-bridge\Start Pandora Print Bridge.bat" (
   start "Pandora Print Agent" /min "%~dp0print-bridge\Start Pandora Print Bridge.bat"
 )
 
+if exist "%~dp0Start Pandora POS Silent Print.bat" (
+  call "%~dp0Start Pandora POS Silent Print.bat"
+  exit /b %ERRORLEVEL%
+)
+
 set "BROWSER="
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
 if not defined BROWSER if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
@@ -222,7 +232,7 @@ if not defined BROWSER if exist "%ProgramFiles%\Microsoft\Edge\Application\msedg
 if not defined BROWSER if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" set "BROWSER=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
 
 if defined BROWSER (
-  start "Pandora POS Cashier" "%BROWSER%" --kiosk-printing --new-window "$LivePosUrl"
+  start "Pandora POS Full System" "%BROWSER%" --kiosk-printing --new-window "$LivePosUrl"
 ) else (
   start "$LivePosUrl"
 )
@@ -243,13 +253,33 @@ function New-Shortcut([string]$ShortcutPath, [string]$TargetPath, [string]$Worki
 }
 
 function Install-Shortcuts {
-  $launcher = Join-Path $InstallDir "Start Pandora Cashier.bat"
+  $launcher = Join-Path $InstallDir "Start Pandora POS Full System.bat"
+  $silentLauncher = Join-Path $InstallDir "Start Pandora POS Silent Print.bat"
+  $restartLauncher = Join-Path $InstallDir "Restart Pandora POS Server.bat"
+  $printerTest = Join-Path $InstallDir "tools\print-xp58-test.ps1"
+  $printerTestBat = Join-Path $InstallDir "Print XP-58 Test Slip.bat"
+  if (Test-Path $printerTest) {
+    Set-Content -Path $printerTestBat -Encoding ASCII -Value @"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\print-xp58-test.ps1" -PrinterName "$PrinterName"
+pause
+"@
+  }
   $desktop = [Environment]::GetFolderPath("Desktop")
   $programs = [Environment]::GetFolderPath("Programs")
   $startMenuDir = Join-Path $programs "Pandora POS"
   New-Item -ItemType Directory -Force -Path $startMenuDir | Out-Null
-  New-Shortcut -ShortcutPath (Join-Path $desktop "Pandora POS Cashier.lnk") -TargetPath $launcher -WorkingDir $InstallDir
-  New-Shortcut -ShortcutPath (Join-Path $startMenuDir "Pandora POS Cashier.lnk") -TargetPath $launcher -WorkingDir $InstallDir
+  New-Shortcut -ShortcutPath (Join-Path $desktop "Pandora POS Full System.lnk") -TargetPath $launcher -WorkingDir $InstallDir
+  New-Shortcut -ShortcutPath (Join-Path $startMenuDir "Pandora POS Full System.lnk") -TargetPath $launcher -WorkingDir $InstallDir
+  if (Test-Path $silentLauncher) {
+    New-Shortcut -ShortcutPath (Join-Path $startMenuDir "Start POS Silent Print.lnk") -TargetPath $silentLauncher -WorkingDir $InstallDir
+  }
+  if (Test-Path $restartLauncher) {
+    New-Shortcut -ShortcutPath (Join-Path $startMenuDir "Restart POS Server.lnk") -TargetPath $restartLauncher -WorkingDir $InstallDir
+  }
+  if (Test-Path $printerTestBat) {
+    New-Shortcut -ShortcutPath (Join-Path $startMenuDir "Print XP-58 Test Slip.lnk") -TargetPath $printerTestBat -WorkingDir $InstallDir
+  }
 }
 
 function Install-Startup {
@@ -293,10 +323,10 @@ $form.Add_Shown({
     Load-Images
     Set-Step 26 "Copying Pandora POS files to $InstallDir..."
     Copy-AppFiles
-    Set-Step 42 "Configuring live POS server and print agent..."
+    Set-Step 42 "Configuring local POS server and print agent..."
     Update-AgentConfig
-    Set-Step 54 "Creating cashier launcher..."
-    New-CashierLauncher
+    Set-Step 54 "Creating full POS launcher..."
+    New-FullPosLauncher
     Set-Step 66 "Creating Desktop and Start Menu shortcuts..."
     Install-Shortcuts
     Set-Step 76 "Adding Print Agent to Windows startup..."
@@ -313,7 +343,7 @@ $form.Add_Shown({
     }
     Set-Step 100 "Pandora POS setup completed."
     $CloseButton.Enabled = $true
-    $message = "Pandora POS setup completed.`n`nInstall folder: $InstallDir`nDesktop shortcut: Pandora POS Cashier`n$PrinterInstallMessage"
+    $message = "Pandora POS full setup completed.`n`nInstall folder: $InstallDir`nDesktop shortcut: Pandora POS Full System`nLocal URL: $LivePosUrl`n$PrinterInstallMessage"
     [Windows.Forms.MessageBox]::Show($message, "Pandora POS Setup", "OK", "Information") | Out-Null
   } catch {
     $StatusLabel.Text = "Install failed: $($_.Exception.Message)"
