@@ -157,12 +157,12 @@ function initApp() {
       // Force update admin name if cached in local storage
       if (state.users) {
         state.users.forEach(u => {
-          if (u.username === 'admin' && (u.name.includes('á€€á€­á€¯á€™á€„á€ºá€¸á€™á€„á€ºá€¸') || u.name === 'Admin')) {
+          if (u.username === 'admin' && (u.name.includes('ကိုမင်းမင်း') || u.name === 'Admin')) {
             u.name = 'Admin 1';
           }
         });
       }
-      if (state.currentUser && state.currentUser.username === 'admin' && (state.currentUser.name.includes('á€€á€­á€¯á€™á€„á€ºá€¸á€™á€„á€ºá€¸') || state.currentUser.name === 'Admin')) {
+      if (state.currentUser && state.currentUser.username === 'admin' && (state.currentUser.name.includes('ကိုမင်းမင်း') || state.currentUser.name === 'Admin')) {
         state.currentUser.name = 'Admin 1';
       }
       
@@ -474,14 +474,14 @@ async function connectServerSync(localCandidate = sharedServerState()) {
   }
 }
 
-// â”€â”€ SSE Real-Time Listener â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SSE Real-Time Listener ────────────────────────────────────────────────────
 // Primary: Server pushes a lightweight "version changed" event instantly.
 // Client then fetches full state only when version is newer.
 // Falls back to 1.5-second polling if SSE is unsupported or disconnected.
 function startSSEListener() {
   if (OFFLINE_DEMO_MODE) return;
   if (!window.EventSource) {
-    console.warn('SSE not supported â€” falling back to polling only');
+    console.warn('SSE not supported — falling back to polling only');
     startServerPolling();
     return;
   }
@@ -493,12 +493,12 @@ function startSSEListener() {
     sseSource = new EventSource(url, { withCredentials: true });
 
     sseSource.addEventListener('connected', () => {
-      console.log('[SSE] Connected â€” real-time push active');
+      console.log('[SSE] Connected — real-time push active');
     });
 
     sseSource.addEventListener('update', async () => {
-      // Server says version changed â€” fetch latest full state immediately
-      // Note: do NOT block on serverSaveTimer â€” local cart is preserved by applyServerState()
+      // Server says version changed — fetch latest full state immediately
+      // Note: do NOT block on serverSaveTimer — local cart is preserved by applyServerState()
       if (serverWriteInFlight) return;
       try {
         const remote = await apiRequest('state', { method: 'GET' });
@@ -514,13 +514,13 @@ function startSSEListener() {
     });
 
     sseSource.addEventListener('reconnect', () => {
-      // Server is about to close â€” reconnect immediately
+      // Server is about to close — reconnect immediately
       sseSource.close();
       setTimeout(connectSSE, 200);
     });
 
     sseSource.onerror = () => {
-      console.warn('[SSE] Connection dropped â€” will auto-reconnect in 3s');
+      console.warn('[SSE] Connection dropped — will auto-reconnect in 3s');
       sseSource.close();
       sseSource = null;
       setTimeout(connectSSE, 3000);
@@ -537,7 +537,7 @@ function startServerPolling() {
   if (OFFLINE_DEMO_MODE) return;
   clearInterval(serverPollTimer);
   serverPollTimer = setInterval(async () => {
-    // Only skip if actively writing â€” do NOT skip on serverSaveTimer (local cart is preserved)
+    // Only skip if actively writing — do NOT skip on serverSaveTimer (local cart is preserved)
     if (!state.currentUser || serverWriteInFlight) return;
     try {
       const remote = await apiRequest('state', { method: 'GET' });
@@ -587,7 +587,7 @@ async function writeServerState(payload = sharedServerState(), baseVersion = ser
       return;
     } catch (error) {
       if (error.status === 409 && error.payload) {
-        // Version conflict â€” fetch latest and retry with newest base
+        // Version conflict — fetch latest and retry with newest base
         const latest = error.payload;
         currentBase = latest.version || 0;
         serverStateVersion = currentBase;
@@ -621,7 +621,7 @@ function scheduleServerSave() {
   }, 350);
 }
 
-// Bypass debounce timer â€” push to server immediately for critical actions
+// Bypass debounce timer — push to server immediately for critical actions
 // (Order Send, Payment, Table Transfer, etc.)
 function immediateServerSave() {
   if (OFFLINE_DEMO_MODE) return;
@@ -1460,7 +1460,7 @@ function normalizeStaticUiLabels() {
 
 function sanitizeMojibakeLeafText(root) {
   if (!root) return;
-  const badTextPattern = /[áÁâðï]/;
+  const badTextPattern = /[\u00e1\u00c1\u00e2\u00f0\u00ef]/;
   root.querySelectorAll('*').forEach(el => {
     if (el.children.length > 0 || ['SCRIPT', 'STYLE'].includes(el.tagName)) return;
     const text = (el.textContent || '').trim();
@@ -1776,7 +1776,7 @@ function renderPopularItems(filteredSales) {
   if (sorted.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 0.85rem;">
-        á€œá€°á€€á€¼á€­á€¯á€€á€ºá€™á€»á€¬á€¸á€žá€±á€¬ á€Ÿá€„á€ºá€¸á€•á€½á€²á€…á€¬á€›á€„á€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«
+        လူကြိုက်များသော ဟင်းပွဲစာရင်း မရှိသေးပါ
       </div>
     `;
     return;
@@ -1993,7 +1993,7 @@ function quickRestockProduct(productId) {
     quantity: String(qty),
     unit: "Pcs",
     date: localToday,
-    notes: `á€…á€á€±á€¬á€·á€–á€¼á€Šá€·á€ºá€žá€½á€„á€ºá€¸á€á€¼á€„á€ºá€¸ (Dashboard Quick Restock)`,
+    notes: `စတော့ဖြည့်သွင်းခြင်း (Dashboard Quick Restock)`,
     addedToInventory: true,
     productId: product.id,
     addQty: qty
@@ -2005,7 +2005,7 @@ function quickRestockProduct(productId) {
   saveState();
   
   // Show notification
-  alert(`ðŸŽ‰ "${product.name}" á€€á€¯á€”á€ºá€•á€…á€¹á€…á€Šá€ºá€¸á€¡á€¬á€¸ á€…á€á€±á€¬á€· (${qty}) á€á€¯ á€–á€¼á€Šá€·á€ºá€žá€½á€„á€ºá€¸á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!\ná€€á€¯á€”á€ºá€€á€»á€…á€›á€­á€á€º: ${formatPrice(restockExp.cost)} á€¡á€–á€¼á€…á€º á€¡á€œá€­á€¯á€¡á€œá€»á€±á€¬á€€á€º á€žá€½á€„á€ºá€¸á€šá€°á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®á‹`);
+  alert(`🎉 "${product.name}" ကုန်ပစ္စည်းအား စတော့ (${qty}) ခု ဖြည့်သွင်းပြီးပါပြီ!\nကုန်ကျစရိတ်: ${formatPrice(restockExp.cost)} အဖြစ် အလိုအလျောက် သွင်းယူပြီးပါပြီ။`);
   
   // Update views
   renderDashboard();
@@ -2532,7 +2532,7 @@ function renderCart() {
     step1TransferBtn.style.display = (state.currentCart.tableId && state.currentCart.items.length > 0) ? 'inline-block' : 'none';
   }
 
-  // Step 1 footer â€” show only when items exist
+  // Step 1 footer — show only when items exist
   const step1Footer = document.getElementById('cartStep1Footer');
   const step1Preview = document.getElementById('step1SubtotalPreview');
   if (step1Footer) {
@@ -2798,7 +2798,7 @@ function confirmCartStep() {
   if (cart.type === 'dine-in') {
     const table = cart.tableId ? state.tables.find(t => t.id === cart.tableId || t.id === parseInt(cart.tableId)) : null;
     
-    // If table is already billed â†’ go straight to payment instead of sending to kitchen again
+    // If table is already billed → go straight to payment instead of sending to kitchen again
     if (table && table.status === 'billed') {
       processPaymentAction();
       return;
@@ -3811,7 +3811,7 @@ function renderKitchenDisplay() {
     const headerColor = order.status === 'preparing' ? 'style="border-bottom: 2px solid var(--accent-warning);"' : '';
     
     let actionBtn = '';
-    // No "Start Cooking" step â€” order goes straight from pending to ready
+    // No "Start Cooking" step — order goes straight from pending to ready
     if (order.status === 'pending' || order.status === 'preparing') {
       actionBtn = `<button class="k-btn k-btn-success" onclick="setOrderStatus('${order.id}', 'ready')"><i class="fa-solid fa-check"></i> Ready</button>`;
     }
@@ -4915,7 +4915,7 @@ async function handleLoginSubmit(username, password) {
   }
 }
 
-// â”€â”€ PIN Keypad & User Selector Login Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── PIN Keypad & User Selector Login Helpers ──────────────────────────────
 let selectedLoginUsername = null;
 
 function setLoginPasswordStepVisible(visible) {
@@ -5293,7 +5293,7 @@ function renderCategoryManagement() {
   if (!container) return;
   
   if (!state.categories || state.categories.length === 0) {
-    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 15px;">á€™á€”á€ºá€”á€°á€¸á€¡á€¯á€•á€ºá€…á€¯á€™á€»á€¬á€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«</div>`;
+    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 15px;">မန်နူးအုပ်စုများ မရှိသေးပါ</div>`;
     return;
   }
   
@@ -5808,9 +5808,9 @@ function openTransferTableModal() {
     state.tables.forEach(t => {
       if (t.id !== sourceTableId) {
         let statusLabel = '';
-        if (t.status === 'occupied') statusLabel = ' (á€œá€°á€‘á€­á€¯á€„á€ºá€”á€±á€†á€²)';
-        else if (t.status === 'billed') statusLabel = ' (á€›á€¾á€„á€ºá€¸á€›á€”á€ºá€•á€¼á€„á€ºá€†á€„á€ºá€”á€±)';
-        html += `<option value="${t.id}">${t.name} [${t.seats} á€šá€±á€¬á€€á€ºá€‘á€­á€¯á€„á€º]${statusLabel}</option>`;
+        if (t.status === 'occupied') statusLabel = ' (လူထိုင်နေဆဲ)';
+        else if (t.status === 'billed') statusLabel = ' (ရှင်းရန်ပြင်ဆင်နေ)';
+        html += `<option value="${t.id}">${t.name} [${t.seats} ယောက်ထိုင်]${statusLabel}</option>`;
       }
     });
     targetSelect.innerHTML = html;
@@ -5832,9 +5832,9 @@ function openTransferTableModal() {
             <span style="font-size: 0.9rem;">${item.name}</span>
           </label>
           <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-size: 0.78rem; color: var(--text-muted);">á€•á€¼á€±á€¬á€„á€ºá€¸á€›á€”á€º -</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">ပြောင်းရန် -</span>
             <input type="number" class="transfer-item-qty" data-key="${key}" min="1" max="${item.quantity}" value="${item.quantity}" style="width: 55px; padding: 4px; text-align: center; border-radius: 4px; border: 1px solid var(--input-border); background: rgba(0,0,0,0.15); color: var(--text-primary); font-size: 0.85rem;">
-            <span style="font-size: 0.85rem; color: var(--text-primary);">/ ${item.quantity} á€•á€½á€²</span>
+            <span style="font-size: 0.85rem; color: var(--text-primary);">/ ${item.quantity} ပွဲ</span>
           </div>
         </div>
       `;
@@ -5884,7 +5884,7 @@ function executeTableTransfer() {
   if (transferType === 'all') {
     // Transfer entire order
     if (targetTable.activeOrderId) {
-      // Target table already occupied â†’ Merge orders
+      // Target table already occupied → Merge orders
       const targetOrder = state.orders.find(o => o.id === targetTable.activeOrderId);
       if (targetOrder) {
         sourceOrder.items.forEach(sourceItem => {
@@ -5908,7 +5908,7 @@ function executeTableTransfer() {
         state.orders = state.orders.filter(o => o.id !== sourceOrderId);
       }
     } else {
-      // Target table empty â†’ Simply transfer the order ownership
+      // Target table empty → Simply transfer the order ownership
       sourceOrder.tableId = targetTableId;
       sourceOrder.tableName = targetTable.name;
       targetTable.activeOrderId = sourceOrderId;
@@ -5919,7 +5919,7 @@ function executeTableTransfer() {
     sourceTable.status = 'available';
     sourceTable.activeOrderId = null;
     
-    alert(`á€…á€¬á€¸á€•á€½á€² "${sourceTable.name}" á á€™á€¾á€¬á€šá€°á€™á€¾á€¯á€¡á€¬á€¸á€œá€¯á€¶á€¸á€€á€­á€¯ á€…á€¬á€¸á€•á€½á€² "${targetTable.name}" á€žá€­á€¯á€· á€•á€¼á€±á€¬á€„á€ºá€¸á€›á€½á€¾á€±á€·á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!`);
+    alert(`စားပွဲ "${sourceTable.name}" ၏ မှာယူမှုအားလုံးကို စားပွဲ "${targetTable.name}" သို့ ပြောင်းရွှေ့ပြီးပါပြီ!`);
   } else {
     // Partial Transfer
     const checkboxes = document.querySelectorAll('.transfer-item-chk:checked');
@@ -5939,7 +5939,7 @@ function executeTableTransfer() {
       const orderItem = sourceOrder.items.find(i => (i.cartKey || i.id) === key);
       if (orderItem) {
         if (transferQty <= 0 || transferQty > orderItem.quantity) {
-          alert(`á€Ÿá€„á€ºá€¸á€•á€½á€² "${orderItem.name}" á€¡á€á€½á€€á€º á€•á€¼á€±á€¬á€„á€ºá€¸á€›á€½á€¾á€±á€·á€™á€Šá€·á€ºá€¡á€›á€±á€¡á€á€½á€€á€ºá€žá€Šá€º á€œá€½á€²á€™á€¾á€¬á€¸á€”á€±á€•á€«á€žá€Šá€º!`);
+          alert(`ဟင်းပွဲ "${orderItem.name}" အတွက် ပြောင်းရွှေ့မည့်အရေအတွက်သည် လွဲမှားနေပါသည်!`);
           hasError = true;
           return;
         }
@@ -6032,7 +6032,7 @@ function executeTableTransfer() {
       targetTable.status = 'occupied';
     }
     
-    alert(`á€…á€¬á€¸á€•á€½á€² "${sourceTable.name}" á€™á€¾ á€›á€½á€±á€¸á€á€»á€šá€ºá€‘á€¬á€¸á€žá€±á€¬ á€Ÿá€„á€ºá€¸á€•á€½á€²á€™á€»á€¬á€¸á€€á€­á€¯ á€…á€¬á€¸á€•á€½á€² "${targetTable.name}" á€žá€­á€¯á€· á€•á€¼á€±á€¬á€„á€ºá€¸á€›á€½á€¾á€±á€·á€•á€¼á€®á€¸á€•á€«á€•á€¼á€®!`);
+    alert(`စားပွဲ "${sourceTable.name}" မှ ရွေးချယ်ထားသော ဟင်းပွဲများကို စားပွဲ "${targetTable.name}" သို့ ပြောင်းရွှေ့ပြီးပါပြီ!`);
   }
   
   saveState();
@@ -6624,9 +6624,9 @@ function renderPresetsSettingsLists() {
 
 function addNewPreset(type) {
   if (type === 'tax') {
-    const name = prompt("Tax á€¡á€™á€Šá€ºá€‘á€Šá€·á€ºá€•á€« (á€¥á€•á€™á€¬- Commercial Tax 5%):");
+    const name = prompt("Tax အမည်ထည့်ပါ (ဥပမာ- Commercial Tax 5%):");
     if (!name) return;
-    const value = parseFloat(prompt("Tax % á€á€”á€ºá€–á€­á€¯á€¸á€‘á€Šá€·á€ºá€•á€« (á€¥á€•á€™á€¬- 5):"));
+    const value = parseFloat(prompt("Tax % တန်ဖိုးထည့်ပါ (ဥပမာ- 5):"));
     if (isNaN(value)) {
       alert("Action completed.");
       return;
@@ -6634,15 +6634,15 @@ function addNewPreset(type) {
     const id = 'tax-' + Date.now();
     state.taxPresets.push({ id, name, value });
   } else {
-    const name = prompt("Discount á€¡á€™á€Šá€ºá€‘á€Šá€·á€ºá€•á€« (á€¥á€•á€™á€¬- VIP Discount 10%):");
+    const name = prompt("Discount အမည်ထည့်ပါ (ဥပမာ- VIP Discount 10%):");
     if (!name) return;
-    const typeOption = prompt("Discount á€¡á€™á€»á€­á€¯á€¸á€¡á€…á€¬á€¸ á€›á€½á€±á€¸á€á€»á€šá€ºá€•á€« (1 = á€›á€¬á€á€­á€¯á€„á€ºá€”á€¾á€¯á€”á€ºá€¸ %, 2 = á€€á€»á€•á€ºá€„á€½á€±á€žá€á€ºá€žá€á€ºá€™á€¾á€á€ºá€™á€¾á€á€º):");
+    const typeOption = prompt("Discount အမျိုးအစား ရွေးချယ်ပါ (1 = ရာခိုင်နှုန်း %, 2 = ကျပ်ငွေသတ်သတ်မှတ်မှတ်):");
     if (typeOption !== '1' && typeOption !== '2') {
       alert("Action completed.");
       return;
     }
     const discountType = typeOption === '1' ? 'percent' : 'fixed';
-    const value = parseFloat(prompt(discountType === 'percent' ? "Discount % á€á€”á€ºá€–á€­á€¯á€¸á€‘á€Šá€·á€ºá€•á€« (á€¥á€•á€™á€¬- 10):" : "Discount á€€á€»á€•á€ºá€„á€½á€±á€á€”á€ºá€–á€­á€¯á€¸á€‘á€Šá€·á€ºá€•á€« (á€¥á€•á€™á€¬- 1000):"));
+    const value = parseFloat(prompt(discountType === 'percent' ? "Discount % တန်ဖိုးထည့်ပါ (ဥပမာ- 10):" : "Discount ကျပ်ငွေတန်ဖိုးထည့်ပါ (ဥပမာ- 1000):"));
     if (isNaN(value)) {
       alert("Action completed.");
       return;
@@ -6806,7 +6806,7 @@ function renderSearchCategoryTable() {
   }
   
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">á€¡á€¯á€•á€ºá€…á€¯ á€›á€¾á€¬á€™á€á€½á€±á€·á€•á€«</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">အုပ်စု ရှာမတွေ့ပါ</td></tr>`;
     return;
   }
   
@@ -7014,7 +7014,7 @@ function deleteSelectedProducts(e) {
   const selectedIds = Array.from(checked).map(cb => cb.getAttribute('data-product-id'));
   
   // Accidental data loss prevention check
-  if (confirm(`âš ï¸ á€žá€á€­á€•á€±á€¸á€á€»á€€á€º: á€›á€½á€±á€¸á€á€»á€šá€ºá€‘á€¬á€¸á€žá€±á€¬ á€Ÿá€„á€ºá€¸á€•á€½á€² ${selectedIds.length} á€™á€»á€­á€¯á€¸á€€á€­á€¯ á€¡á€•á€¼á€®á€¸á€á€­á€¯á€„á€º á€–á€»á€€á€ºá€•á€…á€ºá€•á€«á€™á€Šá€ºá€œá€¬á€¸? á€•á€¼á€”á€ºá€œá€Šá€ºá€›á€šá€°á á€™á€›á€”á€­á€¯á€„á€ºá€•á€«á‹`)) {
+  if (confirm(`⚠️ သတိပေးချက်: ရွေးချယ်ထားသော ဟင်းပွဲ ${selectedIds.length} မျိုးကို အပြီးတိုင် ဖျက်ပစ်ပါမည်လား? ပြန်လည်ရယူ၍ မရနိုင်ပါ။`)) {
     state.products = state.products.filter(p => !selectedIds.includes(p.id));
     
     saveState();
@@ -7207,7 +7207,7 @@ function escapeJsString(text) {
 }
 
 function repairMojibakeText(text) {
-  if (typeof text !== 'string' || !/[áÁâðï]/.test(text)) return text;
+  if (typeof text !== 'string' || !/[\u00e1\u00c1\u00e2\u00f0\u00ef]/.test(text)) return text;
 
   const win1252 = {
     0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84,
@@ -7226,7 +7226,7 @@ function repairMojibakeText(text) {
       return win1252[code] ?? 0x3f;
     });
     const decoded = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
-    return decoded && !/[áÁâðï]/.test(decoded) ? decoded : text;
+    return decoded && !/[\u00e1\u00c1\u00e2\u00f0\u00ef]/.test(decoded) ? decoded : text;
   } catch (err) {
     return text;
   }
@@ -7680,7 +7680,7 @@ function triggerReportDownload() {
   document.title = prevTitle;
 }
 
-// 5. Payment Checkout Modal â€” integrated validation flow
+// 5. Payment Checkout Modal — integrated validation flow
 let activePaymentCallback = null;
 let _checkoutTarget = null; // holds { subtotal, discount, tax, total } snapshot
 let _checkoutSelectedMethod = null;
@@ -7800,7 +7800,7 @@ function selectCheckoutPaymentMethod(methodName) {
 
 function submitCheckoutPayment() {
   if (!_checkoutSelectedMethod) {
-    alert('á€€á€»á€±á€¸á€‡á€°á€¸á€•á€¼á€¯á á€„á€½á€±á€•á€±á€¸á€á€»á€±á€™á€¾á€¯á€•á€¯á€¶á€…á€¶ á€›á€½á€±á€¸á€á€»á€šá€ºá€•á€±á€¸á€•á€«!');
+    alert('ကျေးဇူးပြု၍ ငွေပေးချေမှုပုံစံ ရွေးချယ်ပေးပါ!');
     return;
   }
   if (activePaymentCallback) {
@@ -8531,76 +8531,76 @@ function processBotQuery(query) {
   const netProfitToday = totalSalesToday - totalExpensesToday;
   
   // 1. TODAY SALES QUERY
-  if (q.includes('á€›á€±á€¬á€„á€ºá€¸') || q.includes('sale') || q.includes('today sales') || q.includes('á€¡á€›á€±á€¬á€„á€ºá€¸')) {
-    if (q.includes('list') || q.includes('á€¡á€žá€±á€¸á€…á€­á€á€º') || q.includes('á€…á€¬á€›á€„á€ºá€¸')) {
+  if (q.includes('ရောင်း') || q.includes('sale') || q.includes('today sales') || q.includes('အရောင်း')) {
+    if (q.includes('list') || q.includes('အသေးစိတ်') || q.includes('စာရင်း')) {
       if (todaySales.length === 0) {
-        return `á€šá€”á€±á€· á€¡á€›á€±á€¬á€„á€ºá€¸á€…á€¬á€›á€„á€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«á€á€„á€ºá€—á€»á€¬á‹`;
+        return `ယနေ့ အရောင်းစာရင်း မရှိသေးပါခင်ဗျာ။`;
       }
-      let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">ðŸ“Š á€šá€”á€±á€·á€¡á€›á€±á€¬á€„á€ºá€¸á€…á€¬á€›á€„á€ºá€¸:</div>`;
+      let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">📊 ယနေ့အရောင်းစာရင်း:</div>`;
       todaySales.forEach(s => {
-        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">â€¢ <strong>${s.id}</strong> (${s.tableName}) - <span style="color:var(--accent-success);">${formatPrice(s.total)}</span></div>`;
+        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">• <strong>${s.id}</strong> (${s.tableName}) - <span style="color:var(--accent-success);">${formatPrice(s.total)}</span></div>`;
       });
       return listHtml;
     }
-    return `á€šá€”á€±á€· á€¡á€›á€±á€¬á€„á€ºá€¸á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸á€™á€¾á€¬ <span style="font-weight:800; color:var(--accent-success);">${formatPrice(totalSalesToday)}</span> á€–á€¼á€…á€ºá€•á€«á€á€šá€º á€á€„á€ºá€—á€»á€¬á‹ (á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸ ${todaySales.length} á€€á€¼á€­á€™á€º á€›á€±á€¬á€„á€ºá€¸á€›á€•á€«á€žá€Šá€º)`;
+    return `ယနေ့ အရောင်းစုစုပေါင်းမှာ <span style="font-weight:800; color:var(--accent-success);">${formatPrice(totalSalesToday)}</span> ဖြစ်ပါတယ် ခင်ဗျာ။ (စုစုပေါင်း ${todaySales.length} ကြိမ် ရောင်းရပါသည်)`;
   }
   
   // 2. EXPENSES QUERY
-  if (q.includes('á€á€šá€º') || q.includes('á€…á€›á€­á€á€º') || q.includes('expense') || q.includes('á€‘á€½á€€á€º') || q.includes('á€–á€­á€¯á€¸')) {
-    if (q.includes('list') || q.includes('á€¡á€žá€±á€¸á€…á€­á€á€º') || q.includes('á€…á€¬á€›á€„á€ºá€¸')) {
+  if (q.includes('ဝယ်') || q.includes('စရိတ်') || q.includes('expense') || q.includes('ထွက်') || q.includes('ဖိုး')) {
+    if (q.includes('list') || q.includes('အသေးစိတ်') || q.includes('စာရင်း')) {
       if (todayExpenses.length === 0) {
-        return `á€šá€”á€±á€· á€á€šá€ºá€šá€°á€…á€›á€­á€á€ºá€™á€¾á€á€ºá€á€™á€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«á€á€„á€ºá€—á€»á€¬á‹`;
+        return `ယနေ့ ဝယ်ယူစရိတ်မှတ်တမ်း မရှိသေးပါခင်ဗျာ။`;
       }
-      let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">ðŸ’¸ á€šá€”á€±á€·á€€á€¯á€”á€ºá€€á€»á€…á€›á€­á€á€ºá€™á€»á€¬á€¸:</div>`;
+      let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">💸 ယနေ့ကုန်ကျစရိတ်များ:</div>`;
       todayExpenses.forEach(e => {
-        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">â€¢ <strong>${escapeHtml(e.itemName)}</strong> - <span style="color:var(--accent-danger);">${formatPrice(e.cost)}</span></div>`;
+        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">• <strong>${escapeHtml(e.itemName)}</strong> - <span style="color:var(--accent-danger);">${formatPrice(e.cost)}</span></div>`;
       });
       return listHtml;
     }
-    return `á€šá€”á€±á€· á€…á€›á€­á€á€º/á€¡á€žá€¯á€¶á€¸á€…á€›á€­á€á€º á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸á€™á€¾á€¬ <span style="font-weight:800; color:var(--accent-danger);">${formatPrice(totalExpensesToday)}</span> á€–á€¼á€…á€ºá€•á€«á€á€šá€º á€á€„á€ºá€—á€»á€¬á‹`;
+    return `ယနေ့ စရိတ်/အသုံးစရိတ် စုစုပေါင်းမှာ <span style="font-weight:800; color:var(--accent-danger);">${formatPrice(totalExpensesToday)}</span> ဖြစ်ပါတယ် ခင်ဗျာ။`;
   }
   
   // 3. NET PROFIT QUERY
-  if (q.includes('á€™á€¼á€á€º') || q.includes('profit') || q.includes('á€€á€»á€”á€ºá€„á€½á€±')) {
+  if (q.includes('မြတ်') || q.includes('profit') || q.includes('ကျန်ငွေ')) {
     const profitColor = netProfitToday >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)';
-    return `á€šá€”á€±á€· á€…á€¯á€…á€¯á€•á€±á€«á€„á€ºá€¸á€¡á€™á€¼á€á€ºá€„á€½á€± (á€¡á€›á€±á€¬á€„á€ºá€¸ - á€…á€›á€­á€á€º) á€™á€¾á€¬ <span style="font-weight:800; color:${profitColor};">${formatPrice(netProfitToday)}</span> á€–á€¼á€…á€ºá€•á€«á€á€šá€º á€á€„á€ºá€—á€»á€¬á‹`;
+    return `ယနေ့ စုစုပေါင်းအမြတ်ငွေ (အရောင်း - စရိတ်) မှာ <span style="font-weight:800; color:${profitColor};">${formatPrice(netProfitToday)}</span> ဖြစ်ပါတယ် ခင်ဗျာ။`;
   }
   
   // 4. LOW STOCK QUERY
-  if (q.includes('á€…á€á€±á€¬á€·') || q.includes('stock') || q.includes('á€€á€¯á€”á€ºá€•á€…á€¹á€…á€Šá€ºá€¸')) {
+  if (q.includes('စတော့') || q.includes('stock') || q.includes('ကုန်ပစ္စည်း')) {
     const trackable = state.products.filter(p => p.track_inventory);
     const lowStock = trackable.filter(p => p.stock <= 5);
     
-    if (q.includes('á€”á€Šá€ºá€¸') || q.includes('low') || q.includes('á€žá€á€­á€•á€±á€¸')) {
+    if (q.includes('နည်း') || q.includes('low') || q.includes('သတိပေး')) {
       if (lowStock.length === 0) {
-        return `ðŸŽ‰ á€…á€á€±á€¬á€·á€”á€Šá€ºá€¸á€”á€±á€žá€±á€¬ á€€á€¯á€”á€ºá€•á€…á€¹á€…á€Šá€ºá€¸ á€œá€¯á€¶á€¸á€á€™á€›á€¾á€­á€•á€«á€á€„á€ºá€—á€»á€¬á‹ á€¡á€¬á€¸á€œá€¯á€¶á€¸á€¡á€†á€„á€ºá€•á€¼á€±á€•á€«á€á€šá€ºá‹`;
+        return `🎉 စတော့နည်းနေသော ကုန်ပစ္စည်း လုံးဝမရှိပါခင်ဗျာ။ အားလုံးအဆင်ပြေပါတယ်။`;
       }
-      let listHtml = `<div style="font-weight:bold; color:var(--accent-danger); margin-bottom:4px;">âš ï¸ á€…á€á€±á€¬á€·á€”á€Šá€ºá€¸á€”á€±á€žá€±á€¬ á€•á€…á€¹á€…á€Šá€ºá€¸á€™á€»á€¬á€¸:</div>`;
+      let listHtml = `<div style="font-weight:bold; color:var(--accent-danger); margin-bottom:4px;">⚠️ စတော့နည်းနေသော ပစ္စည်းများ:</div>`;
       lowStock.forEach(p => {
-        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">â€¢ <strong>${escapeHtml(p.name)}</strong> - <span style="font-weight:bold;">${p.stock} á€á€¯á€€á€»á€”á€º</span></div>`;
+        listHtml += `<div style="font-size:0.8rem; margin-top:3px;">• <strong>${escapeHtml(p.name)}</strong> - <span style="font-weight:bold;">${p.stock} ခုကျန်</span></div>`;
       });
       return listHtml;
     }
     
     if (trackable.length === 0) {
-      return `á€…á€á€±á€¬á€·á€…á€±á€¬á€„á€·á€ºá€€á€¼á€Šá€·á€ºá€‘á€¬á€¸á€žá€±á€¬ á€€á€¯á€”á€ºá€•á€…á€¹á€…á€Šá€ºá€¸ á€™á€›á€¾á€­á€žá€±á€¸á€•á€«á€á€„á€ºá€—á€»á€¬á‹`;
+      return `စတော့စောင့်ကြည့်ထားသော ကုန်ပစ္စည်း မရှိသေးပါခင်ဗျာ။`;
     }
     
-    let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">ðŸ“¦ á€œá€€á€ºá€›á€¾á€­á€…á€á€±á€¬á€·á€…á€¬á€›á€„á€ºá€¸:</div>`;
+    let listHtml = `<div style="font-weight:bold; margin-bottom:4px;">📦 လက်ရှိစတော့စာရင်း:</div>`;
     trackable.forEach(p => {
       const isLow = p.stock <= 5;
       const color = isLow ? 'var(--accent-danger)' : 'var(--text-primary)';
-      listHtml += `<div style="font-size:0.8rem; margin-top:3px; color:${color};">â€¢ <strong>${escapeHtml(p.name)}</strong> - ${p.stock} á€á€¯á€€á€»á€”á€º ${isLow ? '(Low)' : ''}</div>`;
+      listHtml += `<div style="font-size:0.8rem; margin-top:3px; color:${color};">• <strong>${escapeHtml(p.name)}</strong> - ${p.stock} ခုကျန် ${isLow ? '(Low)' : ''}</div>`;
     });
     return listHtml;
   }
   
   // 5. GREETINGS OR OTHER INFO
-  if (q.includes('á€™á€„á€ºá€¹á€‚á€œá€¬á€•á€«') || q.includes('hello') || q.includes('hi') || q.includes('á€™á€„á€ºá€¸á€˜á€šá€ºá€žá€°á€œá€²') || q.includes('bot') || q.includes('á€¡á€€á€°á€¡á€Šá€®')) {
-    return `á€™á€„á€ºá€¹á€‚á€œá€¬á€•á€«! á€€á€»á€½á€”á€ºá€á€±á€¬á€ºá€€ Pandora POS Bot á€–á€¼á€…á€ºá€•á€«á€á€šá€ºá‹ á€€á€»á€½á€”á€ºá€á€±á€¬á€·á€ºá€€á€­á€¯ á€šá€”á€±á€·á€¡á€›á€±á€¬á€„á€ºá€¸áŠ á€…á€›á€­á€á€ºáŠ á€¡á€™á€¼á€á€ºá€„á€½á€± á€žá€­á€¯á€·á€™á€Ÿá€¯á€á€º á€…á€á€±á€¬á€·á€¡á€á€¼á€±á€¡á€”á€±á€™á€»á€¬á€¸á€€á€­á€¯ á€…á€¬á€žá€¬á€¸á€›á€­á€¯á€€á€ºá á€™á€±á€¸á€™á€¼á€”á€ºá€¸á€”á€­á€¯á€„á€ºá€žá€œá€­á€¯áŠ Suggestions á€á€œá€¯á€á€ºá€™á€»á€¬á€¸á€€á€­á€¯ á€”á€¾á€­á€•á€ºáá€œá€Šá€ºá€¸ á€¡á€œá€½á€šá€ºá€á€€á€° á€™á€±á€¸á€™á€¼á€”á€ºá€¸á€”á€­á€¯á€„á€ºá€•á€«á€á€šá€ºá€á€„á€ºá€—á€»á€¬á‹`;
+  if (q.includes('မင်္ဂလာပါ') || q.includes('hello') || q.includes('hi') || q.includes('မင်းဘယ်သူလဲ') || q.includes('bot') || q.includes('အကူအညီ')) {
+    return `မင်္ဂလာပါ! ကျွန်တော်က Pandora POS Bot ဖြစ်ပါတယ်။ ယနေ့အရောင်း၊ စရိတ်၊ အမြတ်ငွေ၊ စတော့အခြေအနေတို့ကို စာရိုက်မေးနိုင်သလို Suggestions ခလုတ်တွေကိုနှိပ်ပြီးလည်း အလွယ်တကူမေးနိုင်ပါတယ်ခင်ဗျာ။`;
   }
   
-  return `á€”á€¬á€¸á€™á€œá€Šá€ºá€•á€«á€á€„á€ºá€—á€»á€¬á‹ á€¥á€•á€™á€¬ - "á€’á€®á€”á€±á€· á€˜á€šá€ºá€œá€±á€¬á€€á€ºá€›á€±á€¬á€„á€ºá€¸á€›á€œá€²"áŠ "á€…á€›á€­á€á€ºá€…á€¬á€›á€„á€ºá€¸ á€•á€¼á€•á€«"áŠ "á€…á€á€±á€¬á€·á€”á€Šá€ºá€¸á€”á€±á€á€¬á€á€½á€±á€•á€¼á€•á€«" á€žá€­á€¯á€·á€™á€Ÿá€¯á€á€º "á€¡á€™á€¼á€á€ºá€˜á€šá€ºá€œá€±á€¬á€€á€ºá€œá€²" á€…á€žá€–á€¼á€„á€·á€º á€™á€±á€¸á€™á€¼á€”á€ºá€¸á€”á€­á€¯á€„á€ºá€•á€«á€á€šá€º á€á€„á€ºá€—á€»á€¬á‹`;
+  return `နားမလည်ပါခင်ဗျာ။ ဥပမာ - "ဒီနေ့ ဘယ်လောက်ရောင်းရလဲ"၊ "စရိတ်စာရင်း ပြပါ"၊ "စတော့နည်းနေတာတွေပြပါ" သို့မဟုတ် "အမြတ်ဘယ်လောက်လဲ" စသဖြင့် မေးမြန်းနိုင်ပါတယ် ခင်ဗျာ။`;
 }
 
 function clearBotChatHistory() {
@@ -8608,7 +8608,7 @@ function clearBotChatHistory() {
   if (chatArea) {
     chatArea.innerHTML = `
       <div style="align-self: flex-start; max-width: 85%; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--text-primary); padding: 10px 12px; border-radius: 12px 12px 12px 2px; font-size: 0.85rem; line-height: 1.4;">
-        á€™á€„á€ºá€¹á€‚á€œá€¬á€•á€«á€á€„á€ºá€—á€»á€¬! á€€á€»á€½á€”á€ºá€á€±á€¬á€ºá€€ Pandora POS AI Assistant á€–á€¼á€…á€ºá€•á€«á€á€šá€ºá‹ á€…á€”á€…á€ºá€á€½á€„á€ºá€¸ á€…á€¬á€›á€„á€ºá€¸á€‡á€šá€¬á€¸á€™á€»á€¬á€¸á€”á€¾á€„á€·á€º á€•á€á€ºá€žá€€á€ºá€•á€¼á€®á€¸ á€™á€±á€¸á€™á€¼á€”á€ºá€¸á€”á€­á€¯á€„á€ºá€•á€«á€á€šá€ºá‹ ðŸ‘‡
+        မင်္ဂလာပါခင်ဗျာ! ကျွန်တော်က Pandora POS AI Assistant ဖြစ်ပါတယ်။ စနစ်တွင်း စာရင်းဇယားများနှင့် ပတ်သက်ပြီး မေးမြန်းနိုင်ပါတယ်။ 👇
       </div>
     `;
   }
@@ -8661,13 +8661,13 @@ function importDatabaseState(event) {
         alert("Action completed.");
       }
     } catch (err) {
-      alert("á€–á€­á€¯á€„á€ºá€€á€­á€¯ á€–á€á€ºáá€™á€›á€•á€« á€žá€­á€¯á€·á€™á€Ÿá€¯á€á€º á€–á€­á€¯á€„á€ºá€•á€¯á€¶á€…á€¶ á€•á€»á€€á€ºá€…á€®á€¸á€”á€±á€•á€«á€žá€Šá€ºá‹\ná€¡á€™á€¾á€¬á€¸:" + err.message);
+      alert("ဖိုင်ကို ဖတ်၍မရပါ သို့မဟုတ် ဖိုင်ပုံစံ ပျက်စီးနေပါသည်။\nအမှား:" + err.message);
     }
   };
   reader.readAsText(file);
 }
 
-// â”€â”€ Manual Sync Action â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Manual Sync Action ────────────────────────────────────────────────────────
 async function triggerManualSync() {
   if (serverWriteInFlight || serverSaveTimer) return;
   const btn = document.getElementById('manualSyncBtn');
@@ -8695,7 +8695,7 @@ async function triggerManualSync() {
   }
 }
 
-// â”€â”€ Display Local IP helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Display Local IP helper ───────────────────────────────────────────────────
 function displayLocalIpAddress(localIp) {
   if (localIp) cachedLocalIp = localIp; // cache for re-use after renderSettingsPane()
   
@@ -8715,15 +8715,15 @@ function displayLocalIpAddress(localIp) {
   } else {
     if (infoBar) { infoBar.style.display = 'none'; }
     if (settingsDisplay) {
-      settingsDisplay.textContent = 'Local Server á€™á€–á€½á€„á€·á€ºá€›á€žá€±á€¸ (PC Desktop App á€€á€­á€¯á€–á€½á€„á€·á€ºá€•á€«)';
+      settingsDisplay.textContent = 'Local Server မဖွင့်ရသေး (PC Desktop App ကိုဖွင့်ပါ)';
       settingsDisplay.style.color = 'var(--text-muted)';
     }
   }
 }
 
-// â”€â”€ Cloud Credentials Auto-System â”€â”€
+// ── Cloud Credentials Auto-System ──
 
-// â”€â”€ Cloud Sync Auto-System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Cloud Sync Auto-System ───────────────────────────────────────────────────
 const DEFAULT_CLOUD_URL = 'https://pos.stechmm.com/api/index.php';
 
 function getCloudSettings() {
@@ -8743,7 +8743,7 @@ function getCloudSettings() {
   };
 }
 
-// â”€â”€ Auto-Cloud Download (1-Click) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Auto-Cloud Download (1-Click) ────────────────────────────────────────────
 async function triggerCloudDownload() {
   if (!state.currentUser) {
     alert("Action completed.");
@@ -8753,7 +8753,7 @@ async function triggerCloudDownload() {
   const { cloudUrl, username, password } = getCloudSettings();
   
   if (!password) {
-    const pin = prompt("Cloud á€žá€­á€¯á€· á€á€»á€­á€á€ºá€†á€€á€ºá€›á€”á€º á€žá€„á€ºá PIN/Password á€€á€­á€¯ á€›á€­á€¯á€€á€ºá€‘á€Šá€·á€ºá€•á€«:");
+    const pin = prompt("Cloud သို့ ချိတ်ဆက်ရန် သင်၏ PIN/Password ကို ရိုက်ထည့်ပါ:");
     if (!pin) return;
     await _executeCloudDownload(cloudUrl, username, pin.trim());
   } else {
@@ -8771,7 +8771,7 @@ async function _executeCloudDownload(cloudUrl, username, password) {
   if (btn && icon && text) {
     btn.disabled = true;
     icon.className = 'fa-solid fa-spinner fa-spin';
-    text.textContent = 'Cloud á€™á€¾ á€†á€½á€²á€šá€°á€”á€±á€žá€Šá€º...';
+    text.textContent = 'Cloud မှ ဆွဲယူနေသည်...';
   }
 
   try {
@@ -8828,7 +8828,7 @@ async function _executeCloudDownload(cloudUrl, username, password) {
 
   } catch (err) {
     console.error('[Cloud Download]', err);
-    alert(`Cloud Download á€™á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«:\ná€¡á€™á€¾á€¬á€¸: ${err.message}`);
+    alert(`Cloud Download မအောင်မြင်ပါ:\nအမှား: ${err.message}`);
   } finally {
     if (btn && icon && text) {
       btn.disabled = false;
@@ -8838,7 +8838,7 @@ async function _executeCloudDownload(cloudUrl, username, password) {
   }
 }
 
-// â”€â”€ Auto-Cloud Upload (1-Click) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Auto-Cloud Upload (1-Click) ──────────────────────────────────────────────
 async function triggerCloudBackup() {
   if (!state.currentUser) {
     alert("Action completed.");
@@ -8848,7 +8848,7 @@ async function triggerCloudBackup() {
   const { cloudUrl, username, password } = getCloudSettings();
 
   if (!password) {
-    const pin = prompt("Cloud á€žá€­á€¯á€· á€á€„á€ºá€›á€”á€º á€žá€„á€ºá PIN/Password á€€á€­á€¯ á€›á€­á€¯á€€á€ºá€‘á€Šá€·á€ºá€•á€«:");
+    const pin = prompt("Cloud သို့ တင်ရန် သင်၏ PIN/Password ကို ရိုက်ထည့်ပါ:");
     if (!pin) return;
     await _executeCloudUpload(cloudUrl, username, pin.trim());
   } else {
@@ -8864,7 +8864,7 @@ async function _executeCloudUpload(cloudUrl, username, password) {
   if (btn && icon && text) {
     btn.disabled = true;
     icon.className = 'fa-solid fa-spinner fa-spin';
-    text.textContent = 'Cloud á€žá€­á€¯á€· á€á€„á€ºá€”á€±á€žá€Šá€º...';
+    text.textContent = 'Cloud သို့ တင်နေသည်...';
   }
 
   try {
@@ -8898,7 +8898,7 @@ async function _executeCloudUpload(cloudUrl, username, password) {
 
   } catch (err) {
     console.error('[Cloud Upload]', err);
-    alert(`Cloud Upload á€™á€¡á€±á€¬á€„á€ºá€™á€¼á€„á€ºá€•á€«:\ná€¡á€™á€¾á€¬á€¸: ${err.message}`);
+    alert(`Cloud Upload မအောင်မြင်ပါ:\nအမှား: ${err.message}`);
   } finally {
     if (btn && icon && text) {
       btn.disabled = false;
@@ -8908,7 +8908,7 @@ async function _executeCloudUpload(cloudUrl, username, password) {
   }
 }
 
-// â”€â”€ Expenses Selection & Bulk Actions Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Expenses Selection & Bulk Actions Helpers ──────────────────────────────────
 function toggleExpenseActionsDropdown(event) {
   event.stopPropagation();
   const dropdown = document.getElementById('expenseActionsDropdown');
@@ -8974,7 +8974,7 @@ async function deleteSelectedExpenses() {
   }
 }
 
-// â”€â”€ Background Auto-Cloud Backup Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Background Auto-Cloud Backup Helper ───────────────────────────────────────
 let _autoCloudUploadTimeout = null;
 async function triggerAutoCloudUpload() {
   // Throttle auto-uploads to avoid spamming the server on rapid keypresses/saves
@@ -9011,7 +9011,7 @@ async function triggerAutoCloudUpload() {
   }, 3000); // 3-second throttle delay
 }
 
-// â”€â”€ NEW INVENTORY SYSTEM HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── NEW INVENTORY SYSTEM HELPERS ───────────────────────────────────────────────
 function renderInventoryPane() {
   const tbody = document.getElementById('inventoryTableBody');
   if (!tbody) return;
@@ -9238,7 +9238,7 @@ function adjustInventoryStock(id, type) {
   renderInventoryPane();
 }
 
-// â”€â”€ DATABASE RESET FUNCTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── DATABASE RESET FUNCTION ────────────────────────────────────────────────────
 async function resetDatabaseState() {
   if (!confirm("Are you sure?")) return;
   if (!confirm("Are you sure?")) return;
