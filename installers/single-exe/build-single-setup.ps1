@@ -41,7 +41,7 @@ if (Test-Path $websiteHero) {
 $setupSource = Join-Path $Root "installers\single-exe\Setup.ps1"
 $setupPath = Join-Path $build "Setup.ps1"
 Copy-Item -LiteralPath $setupSource -Destination $setupPath -Force
-$setupText = Get-Content -Raw -LiteralPath $setupPath
+$setupText = Get-Content -Raw -Encoding UTF8 -LiteralPath $setupPath
 if ($Mode -eq "Cloud") {
   $cloudApi = $CloudUrl.TrimEnd("/") + "/api/index.php"
   $setupText = $setupText.Replace('[string]$LivePosUrl = "http://localhost:4173"', ('[string]$LivePosUrl = "' + $CloudUrl.TrimEnd("/") + '"'))
@@ -52,7 +52,8 @@ if ($Mode -eq "Cloud") {
   $setupText = $setupText.Replace("Use this PC as the local cashier/server station. Tablets and phones can connect to this PC on the same network.", "This station connects to the VPS POS server and keeps local XP-58 printing ready.")
   $setupText = $setupText.Replace("Configuring local POS server and print agent...", "Configuring cloud POS link and print agent...")
 }
-[System.IO.File]::WriteAllText($setupPath, $setupText, [System.Text.Encoding]::UTF8)
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($setupPath, $setupText, $utf8Bom)
 
 $payloadZip = Join-Path $build "payload.zip"
 if (Test-Path $payloadZip) {
