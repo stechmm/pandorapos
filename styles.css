@@ -993,37 +993,38 @@ body {
 
 .category-scroll {
   display: flex;
-  gap: 12px;
+  gap: 9px;
   overflow-x: auto;
-  padding: 8px 4px;
+  padding: 5px 2px !important;
+  align-items: center;
 }
 
 .category-tab {
-  padding: 12px 24px;
+  min-height: 42px;
+  padding: 7px 14px;
   background: var(--cat-color, #ffffff);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 800;
   color: #1a1a1a !important; /* Bold black text as in screenshot */
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth transition cubic-bezier */
-  min-width: 120px;
+  transition: transform 0.16s ease, filter 0.16s ease, border-color 0.16s ease;
+  min-width: 92px;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
 }
 
 .category-tab:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-  border-color: color-mix(in srgb, var(--cat-color) 75%, black 25%);
+  transform: scale(1.015);
+  filter: brightness(1.03);
 }
 
 .category-tab.active {
-  border: 2px solid color-mix(in srgb, var(--cat-color) 60%, black 40%); /* Slightly darker version of the tab color */
-  transform: scale(1.03);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-color: rgba(255, 255, 255, 0.92);
+  transform: scale(1.025);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cat-color) 65%, #ffffff 35%);
 }
 
 /* Products Card Grid */
@@ -2969,15 +2970,16 @@ textarea.form-control {
   }
 
   .category-scroll {
-    gap: 7px;
-    padding: 5px 1px;
+    gap: 6px;
+    padding: 4px 1px !important;
   }
 
   .category-tab {
-    min-width: 82px;
-    padding: 9px 12px;
-    font-size: 0.78rem;
-    border-radius: 8px;
+    min-width: 74px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.73rem;
+    border-radius: 7px;
   }
 
   .products-grid {
